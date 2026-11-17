@@ -18,6 +18,9 @@ Wichtige Regeln:
 - Tabelle: `team/table` mit `rows` und `updated` (heutiges Datum).
 - Vor grossen Schreibaktionen kurz zusammenfassen, was geschrieben wird. Nach dem Schreiben mit `list` stichprobenartig prüfen.
 
+## Abläufe
+Erst-Import und wöchentliches Update: siehe `tools/ABLAEUFE.md`. Einrichtung am Computer: `ANLEITUNG.md`.
+
 ## Import von football.ch / fvnws.ch (Matchcenter)
 1. Seite holen: zuerst direkt (curl/WebFetch). Wenn blockiert: über Claude in Chrome im Browser von Kaa.
 2. Gruppen-Spielplan: alle Resultate → `fixtures` / `matches`. Spielberichte: Torminuten, Torschützen, Karten, Aufstellung.
