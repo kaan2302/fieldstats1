@@ -689,7 +689,7 @@ function relGap(){ const rows = S.table?.rows || [], N = rows.length, a = +(S.me
   if (!N || !a || !us) return "";
   const gap = k => { const t = rows.find(r => r.rank === k); return t ? t.pts - us.pts : null; }, safeA = N - a, safeB = N - b;
   const txt = k => { const g = gap(k); return us.rank <= k ? `wir sind drüber (${-g >= 0 ? "+" + (-g) : -g} Pkt Vorsprung auf Platz ${k + 1})` : `${g} Pkt Rückstand auf Platz ${k}`; };
-  return `<div class="list" style="margin:8px 0"><div class="li"><span class="dot N" style="width:10px;height:10px"></span><b>${a} fixe Absteiger</b><span class="small muted" style="margin-left:auto">${us.rank <= safeA ? "über dem Strich" : txt(safeA)}</span></div>
+  return `<div class="list" style="margin:8px 0"><div class="li"><span class="dot N" style="width:10px;height:10px"></span><b>Strich (${a} Absteiger)</b><span class="small muted" style="margin-left:auto">${us.rank <= safeA ? "über dem Strich" : txt(safeA)}</span></div>
     ${b > a ? `<div class="li"><span class="dot U" style="width:10px;height:10px"></span><b>Bei ${b} Absteigern</b><span class="small muted" style="margin-left:auto">${us.rank <= safeB ? "über dem Strich" : txt(safeB)}</span></div>` : ""}</div>`; }
 function renderDeep(){
   const d0 = deepUs(), maxD = Math.max(.01, ...d0.imp.slice(0,5).map(x => Math.abs(x.d))), d = d0, st = d.st, f2 = v => v == null ? "–" : v.toFixed(2), last = n => esc(String(n).split(" ").slice(-1)[0]);
@@ -697,39 +697,37 @@ function renderDeep(){
   const cnt = a => { const c = {}; a.forEach(id => c[id] = (c[id]||0) + 1); return Object.entries(c).sort((x,y) => y[1]-x[1]).map(([id,n]) => `${esc(pById(id)?.name||"?")} ${n}`).join(", "); };
   return `<div class="two" style="margin-top:14px">
     <div><h3>Spielstand &amp; erstes Tor</h3><div class="list">
-      <div class="li"><b>Nach Rückstand</b><span class="n">${st.trailPts} Pkt</span></div>
-      <p class="small muted" style="margin:0 4px">In ${st.trail} Spielen lagen wir zurück${st.trailList.length ? `, gepunktet: ${esc(st.trailList.join(", "))}` : ", nie noch gepunktet"}.</p>
-      <div class="li"><b>Führung verspielt</b><span class="n">${st.leadLost} Pkt</span></div>
-      <p class="small muted" style="margin:0 4px">In ${st.lead} Spielen lagen wir vorne${st.leadList.length ? `, nicht gewonnen: ${esc(st.leadList.join(", "))}` : ", alle gewonnen"}.</p>
+      <div class="li"><b>Nach Rückstand</b><span class="small muted">${st.trail} Spiele</span><span class="n">${st.trailPts} Pkt</span></div>
+      
+      <div class="li"><b>Führung verspielt</b><span class="small muted">${st.lead} Spiele</span><span class="n">${st.leadLost} Pkt</span></div>
+      
       <div class="li"><b>Wir treffen zuerst</b><span class="n" style="font-size:13px">${pg(st.first)}</span></div>
       <div class="li"><b>Gegner trifft zuerst</b><span class="n" style="font-size:13px">${pg(st.firstAg)}</span></div>
-    </div><p class="small muted">Basis: ${d.full} von ${d.all} Spielen mit vollständig erfasster Torfolge.</p></div>
-    <div><h3>Wer macht den Unterschied</h3>${d.imp.length ? `<div class="list">${d.imp.slice(0,5).map(x => `<div class="li"><span class="face">${face(x.p)}</span><div><b>${esc(x.p.name)}</b><div class="small muted">Startelf ${f2(x.on)} Pkt · ${x.gaOn.toFixed(1)} Gegentore (${x.n} Sp.) · ohne ${f2(x.off)} Pkt · ${x.gaOff.toFixed(1)} (${x.m} Sp.)</div></div><span class="n" style="font-size:15px;color:var(--${x.d>=0?"win":"loss"})">${x.d>=0?"+":""}${x.d.toFixed(2)}</span></div><div class="div" style="margin:-2px 10px 4px" title="Unterschied Punkte pro Spiel"><i style="${x.d>=0?`left:50%;width:${Math.min(50,x.d/maxD*50)}%`:`right:50%;width:${Math.min(50,-x.d/maxD*50)}%`};background:var(--${x.d>=0?"win":"loss"})"></i></div>`).join("")}</div>` : `<p class="small muted">Zu wenig Spiele mit Startelf.</p>`}
+    </div></div>
+    <div><h3>Wer macht den Unterschied</h3>${d.imp.length ? `<div class="list">${d.imp.slice(0,5).map(x => `<div class="li"><span class="face">${face(x.p)}</span><div><b>${esc(x.p.name)}</b><div class="small muted">mit ${f2(x.on)} · ohne ${f2(x.off)} Pkt/Spiel</div></div><span class="n" style="font-size:15px;color:var(--${x.d>=0?"win":"loss"})">${x.d>=0?"+":""}${x.d.toFixed(2)}</span></div><div class="div" style="margin:-2px 10px 4px" title="Unterschied Punkte pro Spiel"><i style="${x.d>=0?`left:50%;width:${Math.min(50,x.d/maxD*50)}%`:`right:50%;width:${Math.min(50,-x.d/maxD*50)}%`};background:var(--${x.d>=0?"win":"loss"})"></i></div>`).join("")}</div>` : `<p class="small muted">Zu wenig Spiele mit Startelf.</p>`}
       ${d.pairs.length ? `<h3 style="margin-top:10px">Beste Duos in der Startelf</h3><div class="list">${d.pairs.map(x => `<div class="li"><b>${esc(sn(x.a))} + ${esc(sn(x.b))}</b><span class="small muted">${x.n} Sp. · ${x.ga.toFixed(1)} Gegentore</span><span class="n">${x.ppg.toFixed(2)}</span></div>`).join("")}</div>` : ""}
-      <p class="small muted">Punkte pro Spiel mit und ohne Spieler in der Startelf, ab je 3 Spielen. Kleine Zahlen, Zufall spielt mit.</p></div>
+      </div>
   </div>
   <div class="two" style="margin-top:14px">
-    <div><h3>Joker</h3><div class="list"><div class="li"><b>Tore von Eingewechselten</b><span class="n">${d.subG.length}</span></div>${d.subG.length ? `<p class="small muted" style="margin:0 4px">${cnt(d.subG)}</p>` : ""}
-      <div class="li"><b>Vorlagen von Eingewechselten</b><span class="n">${d.subA.length}</span></div>${d.subA.length ? `<p class="small muted" style="margin:0 4px">${cnt(d.subA)}</p>` : ""}</div>
-      ${d.noSub ? `<p class="warn" style="margin-top:8px">In ${d.noSub} von ${d.withXi} Spielen sind keine Wechsel erfasst, die Zahlen sind deshalb zu tief.</p>` : ""}</div>
-    <div><h3>Restprogramm &amp; Ligaerhalt</h3>${d.bottom.length ? `<div class="scroll"><table><thead><tr><th class="l">Team</th><th>Pkt</th><th>Rest</th><th title="Durchschnittliche Punkte pro Spiel der restlichen Gegner">Gegner Ø</th><th title="Hochrechnung mit dem bisherigen Punkteschnitt">Hochr.</th></tr></thead><tbody>${d.bottom.map(x => `<tr class="${isOurs(x.r.team)?"us":""} ${relCls(x.r)}"><td class="l">${x.r.rank}. ${esc(x.r.team)}</td><td><strong>${x.r.pts}</strong></td><td>${x.left}</td><td>${f2(x.str)}</td><td>${x.proj}</td></tr>`).join("")}</tbody></table></div>
+    <div><h3>Joker</h3><div class="list"><div class="li"><b>Tore von Eingewechselten</b><span class="n">${d.subG.length}</span></div>
+      <div class="li"><b>Vorlagen von Eingewechselten</b><span class="n">${d.subA.length}</span></div></div>
+      ${d.noSub ? `<p class="small muted" style="margin-top:6px">${d.noSub} Spiele ohne erfasste Wechsel</p>` : ""}</div>
+    <div><h3>Restprogramm &amp; Ligaerhalt</h3>${d.bottom.length ? `<div class="scroll"><table><thead><tr><th class="l">Team</th><th>Pkt</th><th>Übrig</th><th>Gegnerstärke</th><th>Prognose</th></tr></thead><tbody>${d.bottom.map(x => `<tr class="${isOurs(x.r.team)?"us":""} ${relCls(x.r)}"><td class="l">${x.r.rank}. ${esc(x.r.team)}</td><td><strong>${x.r.pts}</strong></td><td>${x.left}</td><td>${f2(x.str)}</td><td>${x.proj}</td></tr>`).join("")}</tbody></table></div>
       ${relGap()}
-      <p class="small muted">Gegner Ø: Punkte pro Spiel der noch kommenden Gegner, höher heisst schwereres Programm. Hochr.: Endstand, wenn jedes Team im bisherigen Tempo weiterpunktet.</p>` : `<p class="small muted">Braucht eine Tabelle.</p>`}</div>
+      ` : `<p class="small muted">Braucht eine Tabelle.</p>`}</div>
   </div>`;
 }
 function formChart(ms){
   if (!ms.length) return "";
   const W = 320, H = 70, n = ms.length, bw = W / n, ht = {S:54, U:30, N:12};
   return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Resultate der Saison: ${ms.map(res).join(", ")}">${ms.map((m,i) => { const r = res(m), h = ht[r];
-    const pn = id => sn(pById(id) || {name:"?"}), sc = (m.goals||[]).filter(g => g.who).map(g => `${g.min}' ${pn(g.who)}`).join(", ");
-    return `<rect data-tip="${esc(`${fmtD(m.date)} ${m.home?"vs.":"@"} ${m.opp} · ${m.gf}:${m.ga}${m.forfait ? " (Forfait)" : ""}${sc ? "\nTore: " + sc : ""}`)}" x="${i*bw}" y="0" width="${bw}" height="${H}" fill="transparent"/><rect pointer-events="none" x="${i*bw+2}" y="${H-h-4}" width="${bw-4}" height="${h}" rx="3" fill="var(--${r==="S"?"win":r==="U"?"draw":"loss"})"/>`; }).join("")}</svg>`;
+    return `<rect data-tip="${esc(`${m.home?"vs.":"@"} ${m.opp} ${m.gf}:${m.ga}`)}" x="${i*bw}" y="0" width="${bw}" height="${H}" fill="transparent"/><rect pointer-events="none" x="${i*bw+2}" y="${H-h-4}" width="${bw-4}" height="${h}" rx="3" fill="var(--${r==="S"?"win":r==="U"?"draw":"loss"})"/>`; }).join("")}</svg>`;
 }
 function relBars(){
   const rows = (S.table?.rows || []).slice(-6); if (!rows.length) return "";
   const max = Math.max(...rows.map(r => r.pts), 1);
   return `<div class="bars">${rows.map(r => { const c = relCls(r);
-    return `<div class="bar ${isOurs(r.team)?"us":""}" data-tip="${esc(`${r.rank}. ${r.team}\n${r.pts} Punkte aus ${r.sp} Spielen · ${r.gf}:${r.ga} Tore`)}"><span class="t">${r.rank}. ${esc(r.team)}</span><span class="tr"><span class="fl" style="display:block;width:${r.pts/max*100}%;background:var(--${/\brel\b/.test(c)?"loss":/relq/.test(c)?"draw":isOurs(r.team)?"hot":"muted"})"></span></span><span class="v">${r.pts}</span></div>`; }).join("")}</div>
-    <p class="small muted" style="margin:6px 0 0">Rot: fixe Abstiegsplätze · Gelb: Abstieg möglich</p>`;
+    return `<div class="bar ${isOurs(r.team)?"us":""}"><span class="t">${r.rank}. ${esc(r.team)}</span><span class="tr"><span class="fl" style="display:block;width:${r.pts/max*100}%;background:var(--${/\brel\b/.test(c)?"loss":/relq/.test(c)?"draw":isOurs(r.team)?"hot":"muted"})"></span></span><span class="v">${r.pts}</span></div>`; }).join("")}</div>`;
 }
 function insights(pk){
   const d = deepUs(), ms = S.matches.filter(m => played(m) && official(m)), out = [];
@@ -754,7 +752,7 @@ function renderStart(pk, tk){
       ${kpi(`<span style="display:inline-flex;gap:3px">${tk.form.map(r => `<span class="dot ${r}">${r}</span>`).join("")}</span>`, "Form letzte 5", `${tk.S}-${tk.U}-${tk.N} gesamt`)}
     </div>
     <div class="two" style="margin-top:12px">
-      <div><h3>Formkurve</h3>${formChart(ms)}<p class="small muted" style="margin:2px 0 0">Jedes Spiel ein Balken: Sieg hoch, Remis mittel, Niederlage tief.</p></div>
+      <div><h3>Formkurve</h3>${formChart(ms)}</div>
       <div><h3>Abstiegskampf</h3>${relBars()}</div>
     </div>
     <h3 style="margin-top:14px">Das Wichtigste</h3>
@@ -802,9 +800,7 @@ function profileExtra(p){
   const avg = p.apps ? p.min / p.apps : 0;
   let svg = `<svg viewBox="0 0 ${W} ${H+14}" width="100%" role="img" aria-label="Einsatzminuten pro Spiel: ${mins.join(", ")}">`;
   ms.forEach((m,i) => { const v = mins[i], h = v / 90 * H, x = m.stats[p.id] || {}, st = x.start;
-    const g = (m.goals||[]).filter(q => q.who === p.id), a = (m.goals||[]).filter(q => q.ast === p.id).length;
-    const conc = p.pos === "TW" && v ? (m.against||[]).filter(q => { const n = minNum(q.min), from = st ? 0 : 90 - v, to = st ? (v >= 90 ? 999 : v) : 999; return n == null || (n > from && n <= to); }).length : null;
-    const tip = `${fmtD(m.date)} ${m.home?"vs.":"@"} ${m.opp} · ${m.gf}:${m.ga}\n${v ? `${st ? "Startelf" : "Eingewechselt"} · ${v} Minuten` : "Nicht eingesetzt"}${g.length ? `\nTore: ${g.map(q => q.min + "'").join(", ")}` : ""}${a ? `\nVorlagen: ${a}` : ""}${conc != null ? `\nGegentore: ${conc}` : ""}${num(x.y) ? "\nGelbe Karte" : ""}${num(x.r) ? "\nPlatzverweis" : ""}`;
+    const tip = `${m.home?"vs.":"@"} ${m.opp}: ${v ? v + " Min" : "nicht eingesetzt"}`;
     svg += `<rect data-tip="${esc(tip)}" x="${i*bw+1}" y="0" width="${bw-2}" height="${H}" fill="transparent"/><rect pointer-events="none" x="${i*bw+2}" y="${H-Math.max(h,2)}" width="${bw-4}" height="${Math.max(h,2)}" rx="3" fill="${v ? (st ? "var(--cyan)" : "var(--violet)") : "var(--line)"}"/>`; });
   if (avg) svg += `<line x1="0" x2="${W}" y1="${H - avg/90*H}" y2="${H - avg/90*H}" stroke="var(--gold)" stroke-dasharray="4 3"/>`;
   svg += `<text x="0" y="${H+12}">Saisonstart</text><text x="${W}" y="${H+12}" text-anchor="end">letztes Spiel</text></svg>`;
@@ -814,7 +810,7 @@ function profileExtra(p){
   const teamG = team.reduce((s,x) => s + x.g, 0), teamP = team.reduce((s,x) => s + x.pts, 0);
   const cmp = (l, a, b) => `<tr><td>${l}</td><td><strong>${a}</strong></td><td class="muted">${b}</td></tr>`;
   return `<h3 style="margin-top:14px">Einsatzminuten pro Spiel</h3>${svg}
-    <p class="small muted" style="margin:2px 0 0"><span style="color:var(--cyan)">■</span> Startelf · <span style="color:var(--violet)">■</span> eingewechselt · <span style="color:var(--gold)">- -</span> sein Schnitt ${Math.round(avg)}'</p>
+    <p class="small muted" style="margin:2px 0 0"><span style="color:var(--cyan)">■</span> Startelf · <span style="color:var(--violet)">■</span> eingewechselt</p>
     <div class="two" style="margin-top:10px">
       <div><h3>Vergleich mit dem Team</h3><table><thead><tr><th>Wert</th><th>Er</th><th>Team Ø</th></tr></thead><tbody>
         ${cmp("Minuten pro Einsatz", Math.round(avg) + "'", ta ? Math.round(tm / ta) + "'" : "–")}
@@ -822,7 +818,7 @@ function profileExtra(p){
         ${cmp("Scorer pro 90 Min", per90(p.pts, p.min), per90(teamP, tm))}
         ${cmp("Einsatzquote", Math.round(p.quote*100) + " %", team.length ? Math.round(team.reduce((s,x) => s + x.quote, 0) / team.length * 100) + " %" : "–")}
       </tbody></table></div>
-      <div><h3>Wann trifft er</h3>${goalMins.length ? `<div class="bars">${gb.map((v,i) => `<div class="bar" data-tip="${esc(`Minuten ${BL[i]}: ${v} ${v === 1 ? "Tor" : "Tore"}` + S.matches.filter(played).flatMap(m => (m.goals||[]).filter(g => g.who === p.id && Math.min(5, Math.floor((Math.max(1, minNum(g.min) ?? 1)-1)/15)) === i).map(g => `\n${g.min}' ${m.home?"vs.":"@"} ${m.opp}`)).join(""))}" style="grid-template-columns:56px 1fr 24px"><span class="t muted">${BL[i]}</span><span class="tr"><span class="fl" style="display:block;width:${v / Math.max(...gb) * 100}%;background:var(--win)"></span></span><span class="v">${v}</span></div>`).join("")}</div>` : `<p class="small muted">Noch keine Tore mit Spielminute.</p>`}</div>
+      <div><h3>Wann trifft er</h3>${goalMins.length ? `<div class="bars">${gb.map((v,i) => `<div class="bar" data-tip="${BL[i]}: ${v} ${v === 1 ? "Tor" : "Tore"}" style="grid-template-columns:56px 1fr 24px"><span class="t muted">${BL[i]}</span><span class="tr"><span class="fl" style="display:block;width:${v / Math.max(...gb) * 100}%;background:var(--win)"></span></span><span class="v">${v}</span></div>`).join("")}</div>` : `<p class="small muted">Noch keine Tore mit Spielminute.</p>`}</div>
     </div>`;
 }
 function openProfile(id){
@@ -879,7 +875,7 @@ function minuteChart(a, b, la, lb){
   let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${la}: ${a.join(", ")}; ${lb}: ${b.join(", ")} je 15 Minuten">`;
   [0, max].forEach(v => s += `<line x1="${pl}" x2="${W-6}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${pl-6}" y="${Y(v)+4}" text-anchor="end">${v}</text>`);
   a.forEach((v,i) => { const x = pl + i*bw + 6, w = (bw-16)/2;
-    s += `<rect data-tip="${esc(`Minuten ${BL[i]}\n${la}: ${v}\n${lb}: ${b[i]}`)}" x="${x-4}" y="${pt}" width="${bw-4}" height="${H-pt-pb}" fill="transparent"/><rect pointer-events="none" x="${x}" y="${Y(v)}" width="${w}" height="${Y(0)-Y(v)}" rx="4" fill="var(--win)"/><rect pointer-events="none" x="${x+w+4}" y="${Y(b[i])}" width="${w}" height="${Y(0)-Y(b[i])}" rx="4" fill="var(--loss)"/>`;
+    s += `<rect data-tip="${esc(`${BL[i]}: ${v} : ${b[i]}`)}" x="${x-4}" y="${pt}" width="${bw-4}" height="${H-pt-pb}" fill="transparent"/><rect pointer-events="none" x="${x}" y="${Y(v)}" width="${w}" height="${Y(0)-Y(v)}" rx="4" fill="var(--win)"/><rect pointer-events="none" x="${x+w+4}" y="${Y(b[i])}" width="${w}" height="${Y(0)-Y(b[i])}" rx="4" fill="var(--loss)"/>`;
     if (v) s += `<text x="${x+w/2}" y="${Y(v)-4}" text-anchor="middle" style="fill:var(--ink);font-weight:800">${v}</text>`;
     if (b[i]) s += `<text x="${x+w*1.5+4}" y="${Y(b[i])-4}" text-anchor="middle" style="fill:var(--ink);font-weight:800">${b[i]}</text>`;
     s += `<text x="${x+w+2}" y="${H-6}" text-anchor="middle">${BL[i]}</text>`; });
@@ -895,9 +891,9 @@ function ptsChart(cum){
     <polygon points="${X(0)},${Y(0)} ${line} ${X(n-1)},${Y(0)}" fill="url(#ga)"/>
     <polyline points="${cum.map((_,i) => `${X(i)},${Y((i+1)*2)}`).join(" ")}" fill="none" stroke="var(--muted)" stroke-dasharray="4 4"/>
     <polyline points="${line}" fill="none" stroke="var(--hot)" stroke-width="3" stroke-linejoin="round"/>
-    ${cum.map((c,i) => `<circle data-tip="${esc(`${c.opp}: ${c.r === "S" ? "Sieg" : c.r === "U" ? "Remis" : "Niederlage"}\nTotal ${c.pts} Punkte nach ${i+1} Spielen`)}" cx="${X(i)}" cy="${Y(c.pts)}" r="${i===n-1?7:6}" fill="var(--${c.r==="S"?"win":c.r==="U"?"draw":"loss"})" stroke="#080c18" stroke-width="2"><title>${esc(c.opp)}</title></circle>`).join("")}
+    ${cum.map((c,i) => `<circle data-tip="${esc(`${c.opp}: ${c.pts} Pkt`)}" cx="${X(i)}" cy="${Y(c.pts)}" r="${i===n-1?7:6}" fill="var(--${c.r==="S"?"win":c.r==="U"?"draw":"loss"})" stroke="#080c18" stroke-width="2"></circle>`).join("")}
     <text x="${X(n-1)-8}" y="${Y(cum[n-1].pts)-10}" text-anchor="end" style="fill:var(--ink);font-weight:800">${cum[n-1].pts} Pkt</text></svg>
-    <p class="small muted" style="margin:4px 0 0">Gestrichelt: Tempo von 2 Punkten pro Spiel.</p>`;
+`;
 }
 
 // ---- Spiele
