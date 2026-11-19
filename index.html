@@ -207,8 +207,8 @@ dialog::backdrop{background:rgba(3,6,14,.75);backdrop-filter:blur(3px)}
   <!-- KADER -->
   <section id="v-kader">
     <div class="panel">
-      <div class="h"><h2>Startelf <small id="xiInfo">letztes Spiel</small></h2></div>
-      <div class="pitch" id="pitch"><div class="lines"></div><div class="mid"></div><div class="circle"></div><span class="tag" id="formTag">–</span></div>
+      <div class="h"><h2>Unsere Analyse <small id="usInfo"></small></h2></div>
+      <div id="usBody"></div>
     </div>
     <div class="panel">
       <div class="h"><h2>Kader <small id="kcount"></small></h2><div class="seg" id="posSeg" role="group" aria-label="Nach Mannschaftsteil filtern"></div></div>
@@ -372,6 +372,8 @@ dialog::backdrop{background:rgba(3,6,14,.75);backdrop-filter:blur(3px)}
     <div><div class="h" style="margin:0"><h3>Unsere Tore</h3><button class="btn sm" type="button" id="addGoal">+ Tor</button></div><div id="goalRows"></div></div>
     <div><div class="h" style="margin:0"><h3>Gegentore</h3><button class="btn sm" type="button" id="addAg">+ Gegentor</button></div><div id="agRows"></div></div>
   </div>
+  <h3 style="margin-top:6px">Startelf <small class="muted" id="meXiInfo"></small></h3>
+  <div class="pitch" id="mePitch" style="max-height:460px;max-width:440px;margin:0 auto 10px"><div class="lines"></div><div class="mid"></div><div class="circle"></div><span class="tag" id="meTag">–</span></div>
   <h3 style="margin-top:6px">Aufstellung &amp; Einsatz</h3>
   <div class="scroll"><table id="ftable"></table></div>
   <p class="warn" id="fWarn" role="status"></p>
@@ -513,35 +515,54 @@ function render(){
   const pk = playerKPI(), tk = teamKPI();
   $("recbar").innerHTML = `${S.admin ? `<span class="chip" style="border-color:var(--gold)">Admin</span>` : ""}<span class="chip"><b>${tk.pts}</b> Punkte</span><span class="chip"><b>${tk.S}-${tk.U}-${tk.N}</b> S-U-N</span><span class="chip"><b>${tk.gf}:${tk.ga}</b> Tore</span>`
     + (tk.form.length ? `<span class="chip">Form ${tk.form.map(r => `<span class="dot ${r}">${r}</span>`).join("")}</span>` : "");
-  renderKader(pk); renderStats(pk, tk); renderGames(); renderOpp(); if (S.admin) renderSettings();
+  renderKader(pk, tk); renderStats(pk, tk); renderGames(); renderOpp(); if (S.admin) renderSettings();
   route();
 }
 
 // ---- Kader
-function lastLineup(){
-  const m = S.matches.filter(x => played(x) && x.stats && Object.values(x.stats).some(s => s.start)).sort(byDate).pop();
-  if (!m) return null;
-  return {m, xi: S.players.filter(p => m.stats[p.id] && m.stats[p.id].start)};
-}
 function mini(p){ return `<div class="mini ${LINE[p.pos]||"XXX"}"><div class="face">${face(p)}</div><div class="nm">${esc(p.name)}</div><div class="nr">${p.nr ? "#"+p.nr+" · " : ""}${esc(p.pos||"")}</div></div>`; }
-function renderKader(pk){
-  const pitch = $("pitch"); pitch.querySelectorAll(".slot,.empty").forEach(e => e.remove());
-  const L = lastLineup();
-  if (!L){ $("formTag").textContent = "–"; $("xiInfo").textContent = "noch kein Spiel mit Aufstellung";
-    pitch.insertAdjacentHTML("beforeend", `<div class="empty">Sobald ein Spiel mit Startelf erfasst ist, steht sie hier.</div>`); }
-  else {
-    const lines = {TOR:[], ABW:[], MIT:[], ANG:[], XXX:[]};
-    L.xi.sort((a,b) => (POS_ORDER[a.pos]??99) - (POS_ORDER[b.pos]??99)).forEach(p => lines[LINE[p.pos]||"XXX"].push(p));
-    lines.MIT.push(...lines.XXX);
-    const av = lines.ABW.filter(p => p.pos === "AV"), iv = lines.ABW.filter(p => p.pos !== "AV"); lines.ABW = [...av.slice(0,1), ...iv, ...av.slice(1)];
-    const fl = lines.ANG.filter(p => p.pos === "FL"), st = lines.ANG.filter(p => p.pos !== "FL"); lines.ANG = [...fl.slice(0,1), ...st, ...fl.slice(1)];
-    $("formTag").textContent = [lines.ABW.length, lines.MIT.length, lines.ANG.length].filter(Boolean).join("-") || "–";
-    $("xiInfo").textContent = `${fmtD(L.m.date)} ${L.m.home ? "vs." : "@"} ${L.m.opp} · ${L.m.gf}:${L.m.ga}`;
-    [["ANG",18],["MIT",44],["ABW",68],["TOR",88]].forEach(([l, y]) => { const row = lines[l], n = row.length;
-      row.forEach((p, i) => { const b = document.createElement("button"); b.type = "button"; b.className = "slot";
-        b.style.left = (n === 1 ? 50 : 12 + 76 * i / (n - 1)) + "%"; b.style.top = y + "%";
-        b.setAttribute("aria-label", `${p.name}, ${p.pos}`); b.innerHTML = mini(p); b.onclick = () => openProfile(p.id); pitch.appendChild(b); }); });
-  }
+function drawPitch(pitch, tag, xi, onClick){
+  pitch.querySelectorAll(".slot,.empty").forEach(e => e.remove());
+  if (!xi.length){ tag.textContent = "–"; pitch.insertAdjacentHTML("beforeend", `<div class="empty">Keine Startelf erfasst. Hake unten die Spieler unter «Startelf» an.</div>`); return; }
+  const lines = {TOR:[], ABW:[], MIT:[], ANG:[], XXX:[]};
+  [...xi].sort((a,b) => (POS_ORDER[a.pos]??99) - (POS_ORDER[b.pos]??99)).forEach(p => lines[LINE[p.pos]||"XXX"].push(p));
+  lines.MIT.push(...lines.XXX);
+  const av = lines.ABW.filter(p => p.pos === "AV"), iv = lines.ABW.filter(p => p.pos !== "AV"); lines.ABW = [...av.slice(0,1), ...iv, ...av.slice(1)];
+  const fl = lines.ANG.filter(p => p.pos === "FL"), st = lines.ANG.filter(p => p.pos !== "FL"); lines.ANG = [...fl.slice(0,1), ...st, ...fl.slice(1)];
+  tag.textContent = [lines.ABW.length, lines.MIT.length, lines.ANG.length].filter(Boolean).join("-") || "–";
+  [["ANG",18],["MIT",44],["ABW",68],["TOR",88]].forEach(([l, y]) => { const row = lines[l], n = row.length;
+    row.forEach((p, i) => { const b = document.createElement("button"); b.type = "button"; b.className = "slot";
+      b.style.left = (n === 1 ? 50 : 12 + 76 * i / (n - 1)) + "%"; b.style.top = y + "%";
+      b.setAttribute("aria-label", `${p.name}, ${p.pos}`); b.innerHTML = mini(p); if (onClick) b.onclick = () => onClick(p.id); pitch.appendChild(b); }); });
+}
+function renderUs(pk, tk){
+  const ms = S.matches.filter(m => played(m) && official(m)).sort(byDate);
+  if (!ms.length){ $("usInfo").textContent = ""; $("usBody").innerHTML = `<p class="muted">Erscheint nach dem ersten gespielten Spiel.</p>`; return; }
+  const pts = m => { const r = res(m); return r==="S"?3:r==="U"?1:0; };
+  const last = ms.slice(-5), before = ms.slice(0,-5), ppg = a => a.length ? a.reduce((s,m)=>s+pts(m),0)/a.length : null;
+  const pl = ppg(last), pb = ppg(before), trend = pl != null && pb != null ? (pl - pb > .3 ? "steigend ▲" : pl - pb < -.3 ? "fallend ▼" : "stabil ●") : "–";
+  const pp = x => x.n ? (x.pts/x.n).toFixed(2) : "–";
+  const row = (S.table?.rows||[]).find(r => isOurs(r.team));
+  const nx = nextMatch(), no = nx ? oppStats(nx.opp) : null;
+  const top = pk.filter(p => p.g > 0).sort((a,b) => b.g - a.g).slice(0,3);
+  const kpi = (v,l,s) => `<div class="kpi"><div class="v" style="font-size:24px">${v}</div><div class="l">${l}</div>${s?`<div class="s">${s}</div>`:""}</div>`;
+  const an = S.analyses.find(a => isOurs(a.opp));
+  $("usInfo").textContent = row ? `${row.rank}. Platz · ${row.pts} Punkte` : "";
+  $("usBody").innerHTML = `<div class="kpis">
+      ${kpi(tk.form.map(r => `<span class="dot ${r}">${r}</span>`).join(""), "Form letzte 5", `${pl!=null?pl.toFixed(2):"–"} Pkt/Spiel · vorher ${pb!=null?pb.toFixed(2):"–"}`)}
+      ${kpi(trend, "Trend", `${tk.n} Spiele`)}
+      ${kpi(`${pp(tk.home)} / ${pp(tk.away)}`, "Pkt/Spiel Heim / Ausw.", `${tk.home.pts} Pkt Heim · ${tk.away.pts} Pkt Ausw.`)}
+      ${kpi(`${(tk.gf/tk.n).toFixed(1)} : ${(tk.ga/tk.n).toFixed(1)}`, "Tore / Gegentore pro Spiel", `${tk.cs} × zu null`)}
+      ${kpi(top.length ? esc(top[0].name.split(" ").slice(-1)[0]) + " " + top[0].g : "–", "Bester Torschütze", top.slice(1).map(p => esc(p.name.split(" ").slice(-1)[0]) + " " + p.g).join(" · "))}
+      ${nx ? kpi(esc(nx.opp), "Nächster Gegner", `${fmtD(nx.date)} · Form ${no.form.join("") || "–"}`) : ""}
+    </div>
+    <div class="two" style="margin-top:12px">
+      <div><h3>Wann fallen unsere Tore</h3>${minuteChart(buckets(ms.flatMap(m => (m.goals||[]).map(g => g.min))), buckets(ms.flatMap(m => (m.against||[]).map(g => g.min))), "Unsere Tore", "Gegentore")}</div>
+      <div><h3>Einschätzung</h3>${an ? `<div style="white-space:pre-wrap;line-height:1.5">${esc(an.text)}</div><p class="small muted">Stand ${fmtD(String(an.at).slice(0,10))}</p>` : `<p class="small muted">Noch keine Einschätzung. Lass sie in Claude Code erstellen («Mach unsere eigene Analyse»).</p>`}</div>
+    </div>`;
+}
+function renderKader(pk, tk){
+  renderUs(pk, tk);
   const segs = [["","Alle"],["TOR","Tor"],["ABW","Abwehr"],["MIT","Mittelfeld"],["ANG","Angriff"]];
   $("posSeg").innerHTML = segs.map(([k,l]) => `<button type="button" data-f="${k}" aria-pressed="${posFilter===k}">${l}</button>`).join("");
   $("posSeg").querySelectorAll("button").forEach(b => b.onclick = () => { posFilter = b.dataset.f; render(); });
@@ -770,9 +791,13 @@ function openMEdit(m){
       <td><input type="number" min="0" max="130" inputmode="numeric" aria-label="Minuten" value="${s.min ?? ""}"></td>
       <td><input class="w" type="number" min="0" max="2" inputmode="numeric" aria-label="Gelbe Karten" value="${s.y ?? ""}"></td><td><input class="w" type="number" min="0" max="1" inputmode="numeric" aria-label="Rote Karte" value="${s.r ?? ""}"></td></tr>`; }).join("") || `<tr><td colspan="6" class="muted">Zuerst Spieler anlegen.</td></tr>`}</tbody>`;
   $("ftable").querySelectorAll("tbody tr[data-p]").forEach(tr => { const [st, sb, mi] = tr.querySelectorAll("input");
-    st.onchange = () => { if (st.checked){ sb.checked = false; if (!mi.value) mi.value = 90; } }; sb.onchange = () => { if (sb.checked) st.checked = false; }; });
+    st.onchange = () => { if (st.checked){ sb.checked = false; if (!mi.value) mi.value = 90; } meXi(); }; sb.onchange = () => { if (sb.checked) st.checked = false; meXi(); }; });
+  $("meXiInfo").textContent = m && played(m) ? `${fmtD(m.date)} ${m.home ? "vs." : "@"} ${m.opp} · ${m.gf}:${m.ga}` : "";
+  meXi();
   $("medit").showModal();
 }
+function meXi(){ const ids = [...$("ftable").querySelectorAll("tbody tr[data-p]")].filter(tr => tr.querySelector("input").checked).map(tr => tr.dataset.p);
+  drawPitch($("mePitch"), $("meTag"), S.players.filter(p => ids.includes(p.id)), null); }
 $("addMatch").onclick = () => openMEdit(null);
 $("meForm").onsubmit = async e => {
   e.preventDefault();
