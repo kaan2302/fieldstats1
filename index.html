@@ -559,7 +559,76 @@ function renderUs(pk, tk){
     <div class="two" style="margin-top:12px">
       <div><h3>Wann fallen unsere Tore</h3>${minuteChart(buckets(ms.flatMap(m => (m.goals||[]).map(g => g.min))), buckets(ms.flatMap(m => (m.against||[]).map(g => g.min))), "Unsere Tore", "Gegentore")}</div>
       <div><h3>Einschätzung</h3>${an ? `<div style="white-space:pre-wrap;line-height:1.5">${esc(an.text)}</div><p class="small muted">Stand ${fmtD(String(an.at).slice(0,10))}</p>` : `<p class="small muted">Noch keine Einschätzung. Lass sie in Claude Code erstellen («Mach unsere eigene Analyse»).</p>`}</div>
-    </div>`;
+    </div>${renderDeep()}`;
+}
+// ---- Vertiefte Analyse (Startseite)
+const minKey = v => { const m = String(v ?? "").match(/(\d+)\s*(?:\+\s*(\d+))?/); return m ? +m[1]*100 + +(m[2]||0) : 9999; };
+const ptsOf = m => { const r = res(m); return r==="S"?3:r==="U"?1:0; };
+function deepUs(){
+  const ms = S.matches.filter(m => played(m) && official(m)).sort(byDate);
+  // 1+2: Spielstand und erstes Tor (nur Spiele, deren Torfolge vollständig erfasst ist)
+  const full = ms.filter(m => !m.forfait && (m.goals||[]).length === m.gf && (m.against||[]).length === m.ga);
+  const st = {trail:0, trailPts:0, trailList:[], lead:0, leadLost:0, leadList:[], first:{n:0,pts:0}, firstAg:{n:0,pts:0}, nil:{n:0,pts:0}};
+  full.forEach(m => {
+    const ev = [...(m.goals||[]).map(g => ({k:minKey(g.min), us:1})), ...(m.against||[]).map(g => ({k:minKey(g.min), us:0}))].sort((a,b) => a.k - b.k);
+    let f = 0, a = 0, led = false, trailed = false;
+    ev.forEach(e => { e.us ? f++ : a++; if (f > a) led = true; if (f < a) trailed = true; });
+    const p = ptsOf(m), lbl = `${m.home?"vs.":"@"} ${m.opp} ${m.gf}:${m.ga}`;
+    if (trailed){ st.trail++; st.trailPts += p; if (p) st.trailList.push(lbl); }
+    if (led){ st.lead++; if (p < 3){ st.leadLost += 3 - p; st.leadList.push(lbl); } }
+    const o = !ev.length ? st.nil : ev[0].us ? st.first : st.firstAg; o.n++; o.pts += p;
+  });
+  // 3: Spieler-Einfluss (Spiele mit erfasster Startelf)
+  const withXi = ms.filter(m => m.stats && Object.values(m.stats).some(x => x.start));
+  const imp = S.players.map(pl => {
+    const on = withXi.filter(m => m.stats[pl.id]?.start), off = withXi.filter(m => !m.stats[pl.id]?.start);
+    const ppg = a => a.length ? a.reduce((s,m) => s + ptsOf(m), 0) / a.length : null, gapg = a => a.length ? a.reduce((s,m) => s + m.ga, 0) / a.length : null;
+    return {p:pl, n:on.length, m:off.length, on:ppg(on), off:ppg(off), gaOn:gapg(on), gaOff:gapg(off)};
+  }).filter(x => x.n >= 3 && x.m >= 3).map(x => ({...x, d:x.on - x.off})).sort((a,b) => b.d - a.d || a.gaOn - b.gaOn);
+  const pairs = [];
+  const starters = S.players.filter(pl => withXi.filter(m => m.stats[pl.id]?.start).length >= 4);
+  for (let i = 0; i < starters.length; i++) for (let j = i+1; j < starters.length; j++){
+    const a = starters[i], b = starters[j], g = withXi.filter(m => m.stats[a.id]?.start && m.stats[b.id]?.start);
+    if (g.length >= 4) pairs.push({a, b, n:g.length, ppg:g.reduce((s,m)=>s+ptsOf(m),0)/g.length, ga:g.reduce((s,m)=>s+m.ga,0)/g.length});
+  }
+  pairs.sort((x,y) => y.ppg - x.ppg || x.ga - y.ga);
+  // 4: Wechsel
+  const subG = [], subA = []; let noSub = 0;
+  withXi.forEach(m => { if (!Object.values(m.stats).some(x => x.sub)) noSub++;
+    (m.goals||[]).forEach(g => { if (g.who && m.stats[g.who]?.sub) subG.push(g.who); if (g.ast && m.stats[g.ast]?.sub) subA.push(g.ast); }); });
+  // 5: Restprogramm
+  const rows = S.table?.rows || [], ppgT = n => { const r = rows.find(x => norm(x.team) === norm(n)); return r && r.sp ? r.pts / r.sp : null; };
+  const games = n => n && isOurs(n) ? S.matches.filter(m => !played(m)).map(m => m.opp)
+    : S.fixtures.filter(f => (f.hg == null || f.hg === "") && (norm(f.home) === norm(n) || norm(f.away) === norm(n))).map(f => norm(f.home) === norm(n) ? f.away : f.home)
+      .concat(S.matches.filter(m => !played(m) && norm(m.opp) === norm(n)).map(() => S.meta.fbName || S.meta.club));
+  const bottom = rows.slice(-5).map(r => { const g = games(r.team), str = g.map(ppgT).filter(v => v != null);
+    const left = g.length; return {r, left, str: str.length ? str.reduce((s,v)=>s+v,0)/str.length : null, proj: r.sp ? Math.round(r.pts + r.pts / r.sp * left) : r.pts}; });
+  return {full:full.length, all:ms.length, st, imp, pairs:pairs.slice(0,3), subG, subA, noSub, withXi:withXi.length, bottom};
+}
+function renderDeep(){
+  const d = deepUs(), st = d.st, f2 = v => v == null ? "–" : v.toFixed(2), last = n => esc(String(n).split(" ").slice(-1)[0]);
+  const pg = o => o.n ? `${o.pts} Pkt aus ${o.n} Sp. (${(o.pts/o.n).toFixed(2)}/Sp.)` : "–";
+  const cnt = a => { const c = {}; a.forEach(id => c[id] = (c[id]||0) + 1); return Object.entries(c).sort((x,y) => y[1]-x[1]).map(([id,n]) => `${esc(pById(id)?.name||"?")} ${n}`).join(", "); };
+  return `<div class="two" style="margin-top:14px">
+    <div><h3>Spielstand &amp; erstes Tor</h3><div class="list">
+      <div class="li"><b>Nach Rückstand</b><span class="n">${st.trailPts} Pkt</span></div>
+      <p class="small muted" style="margin:0 4px">In ${st.trail} Spielen lagen wir zurück${st.trailList.length ? `, gepunktet: ${esc(st.trailList.join(", "))}` : ", nie noch gepunktet"}.</p>
+      <div class="li"><b>Führung verspielt</b><span class="n">${st.leadLost} Pkt</span></div>
+      <p class="small muted" style="margin:0 4px">In ${st.lead} Spielen lagen wir vorne${st.leadList.length ? `, nicht gewonnen: ${esc(st.leadList.join(", "))}` : ", alle gewonnen"}.</p>
+      <div class="li"><b>Wir treffen zuerst</b><span class="n" style="font-size:13px">${pg(st.first)}</span></div>
+      <div class="li"><b>Gegner trifft zuerst</b><span class="n" style="font-size:13px">${pg(st.firstAg)}</span></div>
+    </div><p class="small muted">Basis: ${d.full} von ${d.all} Spielen mit vollständig erfasster Torfolge.</p></div>
+    <div><h3>Wer macht den Unterschied</h3>${d.imp.length ? `<div class="list">${d.imp.slice(0,5).map(x => `<div class="li"><span class="face">${face(x.p)}</span><div><b>${esc(x.p.name)}</b><div class="small muted">Startelf ${f2(x.on)} Pkt · ${x.gaOn.toFixed(1)} Gegentore (${x.n} Sp.) · ohne ${f2(x.off)} Pkt · ${x.gaOff.toFixed(1)} (${x.m} Sp.)</div></div><span class="n" style="color:var(--${x.d>=0?"win":"loss"})">${x.d>=0?"+":""}${x.d.toFixed(2)}</span></div>`).join("")}</div>` : `<p class="small muted">Zu wenig Spiele mit Startelf.</p>`}
+      ${d.pairs.length ? `<h3 style="margin-top:10px">Beste Duos in der Startelf</h3><div class="list">${d.pairs.map(x => `<div class="li"><b>${last(x.a.name)} + ${last(x.b.name)}</b><span class="small muted">${x.n} Sp. · ${x.ga.toFixed(1)} Gegentore</span><span class="n">${x.ppg.toFixed(2)}</span></div>`).join("")}</div>` : ""}
+      <p class="small muted">Punkte pro Spiel mit und ohne Spieler in der Startelf, ab je 3 Spielen. Kleine Zahlen, Zufall spielt mit.</p></div>
+  </div>
+  <div class="two" style="margin-top:14px">
+    <div><h3>Joker</h3><div class="list"><div class="li"><b>Tore von Eingewechselten</b><span class="n">${d.subG.length}</span></div>${d.subG.length ? `<p class="small muted" style="margin:0 4px">${cnt(d.subG)}</p>` : ""}
+      <div class="li"><b>Vorlagen von Eingewechselten</b><span class="n">${d.subA.length}</span></div>${d.subA.length ? `<p class="small muted" style="margin:0 4px">${cnt(d.subA)}</p>` : ""}</div>
+      ${d.noSub ? `<p class="warn" style="margin-top:8px">In ${d.noSub} von ${d.withXi} Spielen sind keine Wechsel erfasst, die Zahlen sind deshalb zu tief.</p>` : ""}</div>
+    <div><h3>Restprogramm &amp; Ligaerhalt</h3>${d.bottom.length ? `<div class="scroll"><table><thead><tr><th class="l">Team</th><th>Pkt</th><th>Rest</th><th title="Durchschnittliche Punkte pro Spiel der restlichen Gegner">Gegner Ø</th><th title="Hochrechnung mit dem bisherigen Punkteschnitt">Hochr.</th></tr></thead><tbody>${d.bottom.map(x => `<tr class="${isOurs(x.r.team)?"us":""}"><td class="l">${x.r.rank}. ${esc(x.r.team)}</td><td><strong>${x.r.pts}</strong></td><td>${x.left}</td><td>${f2(x.str)}</td><td>${x.proj}</td></tr>`).join("")}</tbody></table></div>
+      <p class="small muted">Gegner Ø: Punkte pro Spiel der noch kommenden Gegner, höher heisst schwereres Programm. Hochr.: Endstand, wenn jedes Team im bisherigen Tempo weiterpunktet.</p>` : `<p class="small muted">Braucht eine Tabelle.</p>`}</div>
+  </div>`;
 }
 function renderKader(pk, tk){
   renderUs(pk, tk);
