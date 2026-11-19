@@ -150,6 +150,8 @@ h3{font:800 13px var(--display);letter-spacing:1.2px;text-transform:uppercase;ma
   .pc .tp{padding:7px 8px 0}.pc .nr{font-size:24px}.pc .ps{font-size:10px;letter-spacing:1px}.pc .badge{font-size:7px;padding:2px 4px}
   .pc .avatar{width:48px;height:48px;font-size:17px}.pc .name{font-size:12px;padding:6px 4px 4px}
   .pc .st{margin:0 4px;padding:4px 0 7px}.pc .st b{font-size:14px}.pc .st span{font-size:7px;letter-spacing:.3px}}
+.tip{position:fixed;z-index:9999;pointer-events:none;background:#0b1020;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:7px 10px;font:700 12px/1.35 var(--body);box-shadow:0 8px 24px rgba(0,0,0,.5);max-width:260px;white-space:pre-line}
+[data-tip]{cursor:pointer}
 a.btn{text-decoration:none;color:inherit;display:inline-block}
 .kpi .v .dot{width:19px;height:19px;font-size:11px;border-radius:6px}
 
@@ -719,13 +721,14 @@ function formChart(ms){
   if (!ms.length) return "";
   const W = 320, H = 70, n = ms.length, bw = W / n, ht = {S:54, U:30, N:12};
   return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Resultate der Saison: ${ms.map(res).join(", ")}">${ms.map((m,i) => { const r = res(m), h = ht[r];
-    return `<rect x="${i*bw+2}" y="${H-h-4}" width="${bw-4}" height="${h}" rx="3" fill="var(--${r==="S"?"win":r==="U"?"draw":"loss"})"><title>${fmtD(m.date)} ${m.home?"vs.":"@"} ${esc(m.opp)} ${m.gf}:${m.ga}</title></rect>`; }).join("")}</svg>`;
+    const pn = id => sn(pById(id) || {name:"?"}), sc = (m.goals||[]).filter(g => g.who).map(g => `${g.min}' ${pn(g.who)}`).join(", ");
+    return `<rect data-tip="${esc(`${fmtD(m.date)} ${m.home?"vs.":"@"} ${m.opp} · ${m.gf}:${m.ga}${m.forfait ? " (Forfait)" : ""}${sc ? "\nTore: " + sc : ""}`)}" x="${i*bw}" y="0" width="${bw}" height="${H}" fill="transparent"/><rect pointer-events="none" x="${i*bw+2}" y="${H-h-4}" width="${bw-4}" height="${h}" rx="3" fill="var(--${r==="S"?"win":r==="U"?"draw":"loss"})"/>`; }).join("")}</svg>`;
 }
 function relBars(){
   const rows = (S.table?.rows || []).slice(-6); if (!rows.length) return "";
   const max = Math.max(...rows.map(r => r.pts), 1);
   return `<div class="bars">${rows.map(r => { const c = relCls(r);
-    return `<div class="bar ${isOurs(r.team)?"us":""}"><span class="t">${r.rank}. ${esc(r.team)}</span><span class="tr"><span class="fl" style="display:block;width:${r.pts/max*100}%;background:var(--${/\brel\b/.test(c)?"loss":/relq/.test(c)?"draw":isOurs(r.team)?"hot":"muted"})"></span></span><span class="v">${r.pts}</span></div>`; }).join("")}</div>
+    return `<div class="bar ${isOurs(r.team)?"us":""}" data-tip="${esc(`${r.rank}. ${r.team}\n${r.pts} Punkte aus ${r.sp} Spielen · ${r.gf}:${r.ga} Tore`)}"><span class="t">${r.rank}. ${esc(r.team)}</span><span class="tr"><span class="fl" style="display:block;width:${r.pts/max*100}%;background:var(--${/\brel\b/.test(c)?"loss":/relq/.test(c)?"draw":isOurs(r.team)?"hot":"muted"})"></span></span><span class="v">${r.pts}</span></div>`; }).join("")}</div>
     <p class="small muted" style="margin:6px 0 0">Rot: fixe Abstiegsplätze · Gelb: Abstieg möglich</p>`;
 }
 function insights(pk){
@@ -798,8 +801,11 @@ function profileExtra(p){
   const mins = ms.map(m => { const x = m.stats[p.id]; return x && (x.start || x.sub) ? num(x.min) : 0; });
   const avg = p.apps ? p.min / p.apps : 0;
   let svg = `<svg viewBox="0 0 ${W} ${H+14}" width="100%" role="img" aria-label="Einsatzminuten pro Spiel: ${mins.join(", ")}">`;
-  ms.forEach((m,i) => { const v = mins[i], h = v / 90 * H, st = m.stats[p.id]?.start;
-    svg += `<rect x="${i*bw+2}" y="${H-Math.max(h,2)}" width="${bw-4}" height="${Math.max(h,2)}" rx="3" fill="${v ? (st ? "var(--cyan)" : "var(--violet)") : "var(--line)"}"><title>${fmtD(m.date)} ${m.home?"vs.":"@"} ${esc(m.opp)}: ${v}'</title></rect>`; });
+  ms.forEach((m,i) => { const v = mins[i], h = v / 90 * H, x = m.stats[p.id] || {}, st = x.start;
+    const g = (m.goals||[]).filter(q => q.who === p.id), a = (m.goals||[]).filter(q => q.ast === p.id).length;
+    const conc = p.pos === "TW" && v ? (m.against||[]).filter(q => { const n = minNum(q.min), from = st ? 0 : 90 - v, to = st ? (v >= 90 ? 999 : v) : 999; return n == null || (n > from && n <= to); }).length : null;
+    const tip = `${fmtD(m.date)} ${m.home?"vs.":"@"} ${m.opp} · ${m.gf}:${m.ga}\n${v ? `${st ? "Startelf" : "Eingewechselt"} · ${v} Minuten` : "Nicht eingesetzt"}${g.length ? `\nTore: ${g.map(q => q.min + "'").join(", ")}` : ""}${a ? `\nVorlagen: ${a}` : ""}${conc != null ? `\nGegentore: ${conc}` : ""}${num(x.y) ? "\nGelbe Karte" : ""}${num(x.r) ? "\nPlatzverweis" : ""}`;
+    svg += `<rect data-tip="${esc(tip)}" x="${i*bw+1}" y="0" width="${bw-2}" height="${H}" fill="transparent"/><rect pointer-events="none" x="${i*bw+2}" y="${H-Math.max(h,2)}" width="${bw-4}" height="${Math.max(h,2)}" rx="3" fill="${v ? (st ? "var(--cyan)" : "var(--violet)") : "var(--line)"}"/>`; });
   if (avg) svg += `<line x1="0" x2="${W}" y1="${H - avg/90*H}" y2="${H - avg/90*H}" stroke="var(--gold)" stroke-dasharray="4 3"/>`;
   svg += `<text x="0" y="${H+12}">Saisonstart</text><text x="${W}" y="${H+12}" text-anchor="end">letztes Spiel</text></svg>`;
   const goalMins = S.matches.filter(played).flatMap(m => (m.goals||[]).filter(g => g.who === p.id).map(g => g.min)), gb = buckets(goalMins);
@@ -816,7 +822,7 @@ function profileExtra(p){
         ${cmp("Scorer pro 90 Min", per90(p.pts, p.min), per90(teamP, tm))}
         ${cmp("Einsatzquote", Math.round(p.quote*100) + " %", team.length ? Math.round(team.reduce((s,x) => s + x.quote, 0) / team.length * 100) + " %" : "–")}
       </tbody></table></div>
-      <div><h3>Wann trifft er</h3>${goalMins.length ? `<div class="bars">${gb.map((v,i) => `<div class="bar" style="grid-template-columns:56px 1fr 24px"><span class="t muted">${BL[i]}</span><span class="tr"><span class="fl" style="display:block;width:${v / Math.max(...gb) * 100}%;background:var(--win)"></span></span><span class="v">${v}</span></div>`).join("")}</div>` : `<p class="small muted">Noch keine Tore mit Spielminute.</p>`}</div>
+      <div><h3>Wann trifft er</h3>${goalMins.length ? `<div class="bars">${gb.map((v,i) => `<div class="bar" data-tip="${esc(`Minuten ${BL[i]}: ${v} ${v === 1 ? "Tor" : "Tore"}` + S.matches.filter(played).flatMap(m => (m.goals||[]).filter(g => g.who === p.id && Math.min(5, Math.floor((Math.max(1, minNum(g.min) ?? 1)-1)/15)) === i).map(g => `\n${g.min}' ${m.home?"vs.":"@"} ${m.opp}`)).join(""))}" style="grid-template-columns:56px 1fr 24px"><span class="t muted">${BL[i]}</span><span class="tr"><span class="fl" style="display:block;width:${v / Math.max(...gb) * 100}%;background:var(--win)"></span></span><span class="v">${v}</span></div>`).join("")}</div>` : `<p class="small muted">Noch keine Tore mit Spielminute.</p>`}</div>
     </div>`;
 }
 function openProfile(id){
@@ -873,7 +879,7 @@ function minuteChart(a, b, la, lb){
   let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${la}: ${a.join(", ")}; ${lb}: ${b.join(", ")} je 15 Minuten">`;
   [0, max].forEach(v => s += `<line x1="${pl}" x2="${W-6}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${pl-6}" y="${Y(v)+4}" text-anchor="end">${v}</text>`);
   a.forEach((v,i) => { const x = pl + i*bw + 6, w = (bw-16)/2;
-    s += `<rect x="${x}" y="${Y(v)}" width="${w}" height="${Y(0)-Y(v)}" rx="4" fill="var(--win)"/><rect x="${x+w+4}" y="${Y(b[i])}" width="${w}" height="${Y(0)-Y(b[i])}" rx="4" fill="var(--loss)"/>`;
+    s += `<rect data-tip="${esc(`Minuten ${BL[i]}\n${la}: ${v}\n${lb}: ${b[i]}`)}" x="${x-4}" y="${pt}" width="${bw-4}" height="${H-pt-pb}" fill="transparent"/><rect pointer-events="none" x="${x}" y="${Y(v)}" width="${w}" height="${Y(0)-Y(v)}" rx="4" fill="var(--win)"/><rect pointer-events="none" x="${x+w+4}" y="${Y(b[i])}" width="${w}" height="${Y(0)-Y(b[i])}" rx="4" fill="var(--loss)"/>`;
     if (v) s += `<text x="${x+w/2}" y="${Y(v)-4}" text-anchor="middle" style="fill:var(--ink);font-weight:800">${v}</text>`;
     if (b[i]) s += `<text x="${x+w*1.5+4}" y="${Y(b[i])-4}" text-anchor="middle" style="fill:var(--ink);font-weight:800">${b[i]}</text>`;
     s += `<text x="${x+w+2}" y="${H-6}" text-anchor="middle">${BL[i]}</text>`; });
@@ -889,7 +895,7 @@ function ptsChart(cum){
     <polygon points="${X(0)},${Y(0)} ${line} ${X(n-1)},${Y(0)}" fill="url(#ga)"/>
     <polyline points="${cum.map((_,i) => `${X(i)},${Y((i+1)*2)}`).join(" ")}" fill="none" stroke="var(--muted)" stroke-dasharray="4 4"/>
     <polyline points="${line}" fill="none" stroke="var(--hot)" stroke-width="3" stroke-linejoin="round"/>
-    ${cum.map((c,i) => `<circle cx="${X(i)}" cy="${Y(c.pts)}" r="${i===n-1?6:4}" fill="var(--${c.r==="S"?"win":c.r==="U"?"draw":"loss"})" stroke="#080c18" stroke-width="2"><title>${esc(c.opp)}</title></circle>`).join("")}
+    ${cum.map((c,i) => `<circle data-tip="${esc(`${c.opp}: ${c.r === "S" ? "Sieg" : c.r === "U" ? "Remis" : "Niederlage"}\nTotal ${c.pts} Punkte nach ${i+1} Spielen`)}" cx="${X(i)}" cy="${Y(c.pts)}" r="${i===n-1?7:6}" fill="var(--${c.r==="S"?"win":c.r==="U"?"draw":"loss"})" stroke="#080c18" stroke-width="2"><title>${esc(c.opp)}</title></circle>`).join("")}
     <text x="${X(n-1)-8}" y="${Y(cum[n-1].pts)-10}" text-anchor="end" style="fill:var(--ink);font-weight:800">${cum[n-1].pts} Pkt</text></svg>
     <p class="small muted" style="margin:4px 0 0">Gestrichelt: Tempo von 2 Punkten pro Spiel.</p>`;
 }
@@ -1109,6 +1115,15 @@ function applySession(session){
   sb.auth.onAuthStateChange((_ev, session) => applySession(session));
   try{ await loadAll(); }catch(e){ showErr(e); }
   sb.channel("docs-live").on("postgres_changes", {event:"*", schema:"public", table:"docs"}, reloadSoon).subscribe();
+})();
+// Tooltips: Maus drüber oder antippen
+(() => { const tip = document.createElement("div"); tip.className = "tip"; tip.hidden = true; let cur = null;
+  const show = (el, x, y) => { cur = el; (el.closest("dialog") || document.body).appendChild(tip); tip.textContent = el.getAttribute("data-tip"); tip.hidden = false;
+    const w = tip.offsetWidth, h = tip.offsetHeight; tip.style.left = Math.max(6, Math.min(innerWidth - w - 6, x - w/2)) + "px"; tip.style.top = (y - h - 12 < 6 ? y + 18 : y - h - 12) + "px"; };
+  const hide = () => { tip.hidden = true; cur = null; };
+  document.addEventListener("pointermove", e => { if (e.pointerType !== "mouse") return; const el = e.target.closest?.("[data-tip]"); if (el) show(el, e.clientX, e.clientY); else if (cur) hide(); });
+  document.addEventListener("pointerdown", e => { if (e.pointerType === "mouse") return; const el = e.target.closest?.("[data-tip]"); if (el && el !== cur) show(el, e.clientX, e.clientY); else hide(); });
+  document.addEventListener("scroll", hide, true);
 })();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
