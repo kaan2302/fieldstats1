@@ -797,7 +797,7 @@ function profileExtra(p){
     svg += `<rect x="${i*bw+2}" y="${H-Math.max(h,2)}" width="${bw-4}" height="${Math.max(h,2)}" rx="3" fill="${v ? (st ? "var(--cyan)" : "var(--violet)") : "var(--line)"}"><title>${fmtD(m.date)} ${m.home?"vs.":"@"} ${esc(m.opp)}: ${v}'</title></rect>`; });
   if (avg) svg += `<line x1="0" x2="${W}" y1="${H - avg/90*H}" y2="${H - avg/90*H}" stroke="var(--gold)" stroke-dasharray="4 3"/>`;
   svg += `<text x="0" y="${H+12}">Saisonstart</text><text x="${W}" y="${H+12}" text-anchor="end">letztes Spiel</text></svg>`;
-  const goalMins = ms.flatMap(m => (m.goals||[]).filter(g => g.who === p.id).map(g => g.min)), gb = buckets(goalMins);
+  const goalMins = S.matches.filter(played).flatMap(m => (m.goals||[]).filter(g => g.who === p.id).map(g => g.min)), gb = buckets(goalMins);
   const team = playerKPI().filter(x => x.apps > 0), tm = team.reduce((s,x) => s + x.min, 0), ta = team.reduce((s,x) => s + x.apps, 0);
   const per90 = (v, m) => m ? (v / m * 90).toFixed(2) : "–";
   const teamG = team.reduce((s,x) => s + x.g, 0), teamP = team.reduce((s,x) => s + x.pts, 0);
