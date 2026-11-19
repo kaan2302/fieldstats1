@@ -121,10 +121,7 @@ h3{font:800 13px var(--display);letter-spacing:1.2px;text-transform:uppercase;ma
 
 /* cards */
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
-@media (max-width:560px){.cards{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-  .pc .tp{padding:7px 8px 0}.pc .nr{font-size:24px}.pc .ps{font-size:10px;letter-spacing:1px}.pc .badge{font-size:7px;padding:2px 4px}
-  .pc .avatar{width:48px;height:48px;font-size:17px}.pc .name{font-size:12px;padding:6px 4px 4px}
-  .pc .st{margin:0 4px;padding:4px 0 7px}.pc .st b{font-size:14px}.pc .st span{font-size:7px;letter-spacing:.3px}}
+
 .plist .li{cursor:pointer;width:100%;text-align:left;color:inherit;font:inherit}
 .plist .pos{font:800 11px var(--display);padding:2px 6px;border-radius:6px;color:#151515;background:linear-gradient(160deg,var(--t1),var(--t2))}
 .plist .nums{margin-left:auto;display:flex;gap:12px;font:800 14px var(--display)}
@@ -149,6 +146,12 @@ h3{font:800 13px var(--display);letter-spacing:1.2px;text-transform:uppercase;ma
 .ANG{--t1:#ffd2c4;--t2:#ff7a55;--t3:#b93a1f}
 .XXX{--t1:#3a4566;--t2:#283253;--t3:#1c2440}
 .XXX,.XXX .mini{color:var(--ink)}
+@media (max-width:560px){.cards{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .pc .tp{padding:7px 8px 0}.pc .nr{font-size:24px}.pc .ps{font-size:10px;letter-spacing:1px}.pc .badge{font-size:7px;padding:2px 4px}
+  .pc .avatar{width:48px;height:48px;font-size:17px}.pc .name{font-size:12px;padding:6px 4px 4px}
+  .pc .st{margin:0 4px;padding:4px 0 7px}.pc .st b{font-size:14px}.pc .st span{font-size:7px;letter-spacing:.3px}}
+a.btn{text-decoration:none;color:inherit;display:inline-block}
+.kpi .v .dot{width:19px;height:19px;font-size:11px;border-radius:6px}
 
 /* stats */
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
@@ -725,7 +728,7 @@ function insights(pk){
   if (d.full && d.st.firstAg.n) out.push(`In ${d.st.firstAg.n} von ${d.full} Spielen trifft der Gegner zuerst. Danach holen wir nur ${(d.st.firstAg.pts/d.st.firstAg.n).toFixed(2)} Punkte pro Spiel.`);
   const ag = buckets(ms.flatMap(m => (m.against||[]).map(g => g.min))), gf = buckets(ms.flatMap(m => (m.goals||[]).map(g => g.min)));
   const ia = ag.indexOf(Math.max(...ag)), ig = gf.indexOf(Math.max(...gf));
-  if (Math.max(...ag)) out.push(`Die meisten Gegentore fallen in der ${BL[ia]}. Minute (${ag[ia]}), unsere eigenen Tore in der ${BL[ig]}. Minute (${gf[ig]}).`);
+  if (Math.max(...ag)) out.push(ia === ig ? `Die Schlussphase entscheidet: In den Minuten ${BL[ia]} schiessen wir die meisten Tore (${gf[ig]}), kassieren dort aber auch die meisten (${ag[ia]}).` : `Die meisten Gegentore kassieren wir in den Minuten ${BL[ia]} (${ag[ia]}), die meisten eigenen Tore schiessen wir in den Minuten ${BL[ig]} (${gf[ig]}).`);
   const tot = pk.reduce((s,p) => s + p.g, 0), top = [...pk].sort((a,b) => b.g - a.g)[0];
   if (top && top.g) out.push(`${sn(top)} schiesst ${top.g} von ${tot} Toren (${Math.round(top.g/tot*100)} %). Fällt er aus, fehlt die Torgefahr.`);
   return out.slice(0,3);
@@ -740,7 +743,7 @@ function renderStart(pk, tk){
   $("startBody").innerHTML = `<div class="kpis">
       ${kpi(row ? row.rank + "." : "–", "Tabellenplatz", row ? `${row.pts} Punkte aus ${row.sp} Spielen` : "")}
       ${kpi(gap + " Pkt", "Abstand zum Strich", safe ? `Platz ${N - a}: ${esc(safe.team)}` : "")}
-      ${kpi(tk.form.map(r => `<span class="dot ${r}">${r}</span>`).join(" "), "Form letzte 5", `${tk.S}-${tk.U}-${tk.N} gesamt`)}
+      ${kpi(`<span style="display:inline-flex;gap:3px">${tk.form.map(r => `<span class="dot ${r}">${r}</span>`).join("")}</span>`, "Form letzte 5", `${tk.S}-${tk.U}-${tk.N} gesamt`)}
     </div>
     <div class="two" style="margin-top:12px">
       <div><h3>Formkurve</h3>${formChart(ms)}<p class="small muted" style="margin:2px 0 0">Jedes Spiel ein Balken: Sieg hoch, Remis mittel, Niederlage tief.</p></div>
