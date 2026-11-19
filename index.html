@@ -696,13 +696,13 @@ function renderDeep(){
   const pg = o => o.n ? `${o.pts} Pkt aus ${o.n} Sp. (${(o.pts/o.n).toFixed(2)}/Sp.)` : "–";
   const cnt = a => { const c = {}; a.forEach(id => c[id] = (c[id]||0) + 1); return Object.entries(c).sort((x,y) => y[1]-x[1]).map(([id,n]) => `${esc(pById(id)?.name||"?")} ${n}`).join(", "); };
   return `<div class="two" style="margin-top:14px">
-    <div><h3>Spielstand &amp; erstes Tor <span style="text-transform:none;letter-spacing:0;font-weight:700">· Punkte</span></h3><div class="list">
+    <div><h3>Spielstand &amp; erstes Tor</h3><div class="list">
       <div class="li"><b>Nach Rückstand</b><span class="small muted">${st.trail} Spiele</span><span class="n">${st.trailPts} Pkt</span></div>
       
       <div class="li"><b>Führung verspielt</b><span class="small muted">${st.lead} Spiele</span><span class="n">${st.leadLost} Pkt</span></div>
       
-      <div class="li"><b>Wir treffen zuerst</b><span class="small muted">${st.first.n} Spiele</span><span class="n">${st.first.n ? (st.first.pts/st.first.n).toFixed(2) : "–"}</span></div>
-      <div class="li"><b>Gegner trifft zuerst</b><span class="small muted">${st.firstAg.n} Spiele</span><span class="n">${st.firstAg.n ? (st.firstAg.pts/st.firstAg.n).toFixed(2) : "–"}</span></div>
+      <div class="li"><b>Wir treffen zuerst</b><span class="small muted">${st.first.n} Spiele</span><span class="n">${st.first.n ? (st.first.pts/st.first.n).toFixed(2) : "–"}<small class="muted" style="font:700 11px var(--body)"> Pkt/Sp.</small></span></div>
+      <div class="li"><b>Gegner trifft zuerst</b><span class="small muted">${st.firstAg.n} Spiele</span><span class="n">${st.firstAg.n ? (st.firstAg.pts/st.firstAg.n).toFixed(2) : "–"}<small class="muted" style="font:700 11px var(--body)"> Pkt/Sp.</small></span></div>
     </div></div>
     <div><h3>Wer macht den Unterschied</h3>${d.imp.length ? `<div class="list">${d.imp.slice(0,5).map(x => `<div class="li"><span class="face">${face(x.p)}</span><div><b>${esc(x.p.name)}</b><div class="small muted">mit ${f2(x.on)} · ohne ${f2(x.off)} Pkt/Spiel</div></div><span class="n" style="font-size:15px;color:var(--${x.d>=0?"win":"loss"})">${x.d>=0?"+":""}${x.d.toFixed(2)}</span></div><div class="div" style="margin:-2px 10px 4px" title="Unterschied Punkte pro Spiel"><i style="${x.d>=0?`left:50%;width:${Math.min(50,x.d/maxD*50)}%`:`right:50%;width:${Math.min(50,-x.d/maxD*50)}%`};background:var(--${x.d>=0?"win":"loss"})"></i></div>`).join("")}</div>` : `<p class="small muted">Zu wenig Spiele mit Startelf.</p>`}
       ${d.pairs.length ? `<h3 style="margin-top:10px">Beste Duos in der Startelf</h3><div class="list">${d.pairs.map(x => `<div class="li"><b>${esc(sn(x.a))} + ${esc(sn(x.b))}</b><span class="small muted">${x.n} Sp. · ${x.ga.toFixed(1)} Gegentore</span><span class="n">${x.ppg.toFixed(2)}</span></div>`).join("")}</div>` : ""}
