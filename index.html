@@ -124,6 +124,8 @@ thead th{font:800 11px var(--display);letter-spacing:1px;color:var(--muted);text
 thead th[data-k]{cursor:pointer}
 thead th[aria-sort]{color:var(--cyan)}
 tr.us td{background:rgba(255,90,54,.12);font-weight:800}
+tr.rel td:first-child{box-shadow:inset 3px 0 0 var(--loss)}tr.relq td:first-child{box-shadow:inset 3px 0 0 var(--draw)}
+tr.cut td{border-top:2px solid var(--loss)}tr.cutq td{border-top:2px dashed var(--draw)}
 svg text{fill:var(--muted);font:11px var(--body)}
 
 /* matches */
@@ -500,6 +502,11 @@ function oppNames(){
   S.matches.forEach(m => add(m.opp)); S.fixtures.forEach(f => { add(f.home); add(f.away); }); (S.table?.rows||[]).forEach(r => add(r.team));
   return [...set.values()].sort((a,b) => a.localeCompare(b));
 }
+function relCls(r){ const rows = S.table?.rows || [], N = rows.length, a = +(S.meta.relegation||0), b = +(S.meta.relegationMaybe||a);
+  if (!N || !a) return ""; const c = [];
+  if (r.rank > N - a) c.push("rel"); else if (r.rank > N - b) c.push("relq");
+  if (r.rank === N - a + 1) c.push("cut"); if (b > a && r.rank === N - b + 1) c.push("cutq");
+  return c.join(" "); }
 const nextMatch = () => S.matches.filter(m => !played(m) && m.date >= new Date().toISOString().slice(0,10)).sort(byDate)[0];
 
 // ================= render =================
@@ -605,6 +612,12 @@ function deepUs(){
     const left = g.length; return {r, left, str: str.length ? str.reduce((s,v)=>s+v,0)/str.length : null, proj: r.sp ? Math.round(r.pts + r.pts / r.sp * left) : r.pts}; });
   return {full:full.length, all:ms.length, st, imp, pairs:pairs.slice(0,3), subG, subA, noSub, withXi:withXi.length, bottom};
 }
+function relGap(){ const rows = S.table?.rows || [], N = rows.length, a = +(S.meta.relegation||0), b = +(S.meta.relegationMaybe||a), us = rows.find(r => isOurs(r.team));
+  if (!N || !a || !us) return "";
+  const gap = k => { const t = rows.find(r => r.rank === k); return t ? t.pts - us.pts : null; }, safeA = N - a, safeB = N - b;
+  const txt = k => { const g = gap(k); return us.rank <= k ? `wir sind drüber (${-g >= 0 ? "+" + (-g) : -g} Pkt Vorsprung auf Platz ${k + 1})` : `${g} Pkt Rückstand auf Platz ${k}`; };
+  return `<div class="list" style="margin:8px 0"><div class="li"><span class="dot N" style="width:10px;height:10px"></span><b>${a} fixe Absteiger</b><span class="small muted" style="margin-left:auto">${us.rank <= safeA ? "über dem Strich" : txt(safeA)}</span></div>
+    ${b > a ? `<div class="li"><span class="dot U" style="width:10px;height:10px"></span><b>Bei ${b} Absteigern</b><span class="small muted" style="margin-left:auto">${us.rank <= safeB ? "über dem Strich" : txt(safeB)}</span></div>` : ""}</div>`; }
 function renderDeep(){
   const d = deepUs(), st = d.st, f2 = v => v == null ? "–" : v.toFixed(2), last = n => esc(String(n).split(" ").slice(-1)[0]);
   const pg = o => o.n ? `${o.pts} Pkt aus ${o.n} Sp. (${(o.pts/o.n).toFixed(2)}/Sp.)` : "–";
@@ -626,7 +639,8 @@ function renderDeep(){
     <div><h3>Joker</h3><div class="list"><div class="li"><b>Tore von Eingewechselten</b><span class="n">${d.subG.length}</span></div>${d.subG.length ? `<p class="small muted" style="margin:0 4px">${cnt(d.subG)}</p>` : ""}
       <div class="li"><b>Vorlagen von Eingewechselten</b><span class="n">${d.subA.length}</span></div>${d.subA.length ? `<p class="small muted" style="margin:0 4px">${cnt(d.subA)}</p>` : ""}</div>
       ${d.noSub ? `<p class="warn" style="margin-top:8px">In ${d.noSub} von ${d.withXi} Spielen sind keine Wechsel erfasst, die Zahlen sind deshalb zu tief.</p>` : ""}</div>
-    <div><h3>Restprogramm &amp; Ligaerhalt</h3>${d.bottom.length ? `<div class="scroll"><table><thead><tr><th class="l">Team</th><th>Pkt</th><th>Rest</th><th title="Durchschnittliche Punkte pro Spiel der restlichen Gegner">Gegner Ø</th><th title="Hochrechnung mit dem bisherigen Punkteschnitt">Hochr.</th></tr></thead><tbody>${d.bottom.map(x => `<tr class="${isOurs(x.r.team)?"us":""}"><td class="l">${x.r.rank}. ${esc(x.r.team)}</td><td><strong>${x.r.pts}</strong></td><td>${x.left}</td><td>${f2(x.str)}</td><td>${x.proj}</td></tr>`).join("")}</tbody></table></div>
+    <div><h3>Restprogramm &amp; Ligaerhalt</h3>${d.bottom.length ? `<div class="scroll"><table><thead><tr><th class="l">Team</th><th>Pkt</th><th>Rest</th><th title="Durchschnittliche Punkte pro Spiel der restlichen Gegner">Gegner Ø</th><th title="Hochrechnung mit dem bisherigen Punkteschnitt">Hochr.</th></tr></thead><tbody>${d.bottom.map(x => `<tr class="${isOurs(x.r.team)?"us":""} ${relCls(x.r)}"><td class="l">${x.r.rank}. ${esc(x.r.team)}</td><td><strong>${x.r.pts}</strong></td><td>${x.left}</td><td>${f2(x.str)}</td><td>${x.proj}</td></tr>`).join("")}</tbody></table></div>
+      ${relGap()}
       <p class="small muted">Gegner Ø: Punkte pro Spiel der noch kommenden Gegner, höher heisst schwereres Programm. Hochr.: Endstand, wenn jedes Team im bisherigen Tempo weiterpunktet.</p>` : `<p class="small muted">Braucht eine Tabelle.</p>`}</div>
   </div>`;
 }
@@ -729,7 +743,7 @@ function renderGames(){
   const t = S.table;
   $("tblInfo").textContent = t && t.updated ? `Stand ${fmtD(t.updated)}` : "";
   $("table").innerHTML = t && t.rows && t.rows.length ? `<table><thead><tr><th>#</th><th class="l">Team</th><th>Sp</th><th>S</th><th>U</th><th>N</th><th>Tore</th><th>Diff</th><th>Pkt</th></tr></thead><tbody>
-    ${t.rows.map(r => `<tr class="${isOurs(r.team)?"us":""}"><td>${r.rank}</td><td class="l">${esc(r.team)}</td><td>${r.sp}</td><td>${r.s}</td><td>${r.u}</td><td>${r.n}</td><td>${r.gf}:${r.ga}</td><td>${r.gf-r.ga>0?"+":""}${r.gf-r.ga}</td><td><strong>${r.pts}</strong></td></tr>`).join("")}</tbody></table>`
+    ${t.rows.map(r => `<tr class="${isOurs(r.team)?"us":""} ${relCls(r)}"><td>${r.rank}</td><td class="l">${esc(r.team)}</td><td>${r.sp}</td><td>${r.s}</td><td>${r.u}</td><td>${r.n}</td><td>${r.gf}:${r.ga}</td><td>${r.gf-r.ga>0?"+":""}${r.gf-r.ga}</td><td><strong>${r.pts}</strong></td></tr>`).join("")}</tbody></table>`
     : `<p class="muted">Noch keine Tabelle.${S.admin ? " Lass sie in Claude Code von football.ch importieren." : ""}</p>`;
 }
 function matchRow(m){
