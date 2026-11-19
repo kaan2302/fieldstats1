@@ -291,6 +291,7 @@ dialog::backdrop{background:rgba(3,6,14,.75);backdrop-filter:blur(3px)}
       <div class="panel"><div class="h"><h2>Torschützen</h2></div><div class="list" id="scorers"></div></div>
       <div class="panel"><div class="h"><h2>Vorlagen</h2></div><div class="list" id="assists"></div></div>
     </div>
+    <div class="panel"><div class="h"><h2>Torhüter</h2><small class="muted">Gegentore, solange er auf dem Platz stand</small></div><div class="list" id="keepers"></div></div>
     <div class="panel"><div class="h"><h2>Alle Spieler</h2><small class="muted">Spalte antippen zum Sortieren</small></div><div class="scroll"><table class="wide" id="ptable"></table></div></div>
   </section>
 
@@ -520,11 +521,15 @@ function teamKPI(){
 function playerKPI(){
   const ms = S.matches.filter(played), n = ms.length;
   return S.players.map(p => {
-    const k = {...p, apps:0, starts:0, subs:0, min:0, g:0, a:0, y:0, r:0};
+    const k = {...p, apps:0, starts:0, subs:0, min:0, g:0, a:0, y:0, r:0, ga:0, cs:0};
     ms.forEach(m => {
       (m.goals||[]).forEach(g => { if (g.who === p.id) k.g++; if (g.ast === p.id) k.a++; });
       const s = m.stats && m.stats[p.id]; if (!s || !(s.start || s.sub)) return;
       k.apps++; if (s.start) k.starts++; else k.subs++; k.min += num(s.min); k.y += num(s.y); k.r += num(s.r);
+      // Gegentore, solange er auf dem Platz stand; zu null = von Beginn an gespielt und in seiner Zeit kein Gegentor
+      const mn = num(s.min), from = s.start ? 0 : 90 - mn, to = s.start ? (mn >= 90 ? 999 : mn) : 999;
+      const conc = (m.against||[]).filter(g => { const x = minNum(g.min); return x == null ? !!s.start && mn >= 90 : x > from && x <= to; }).length;
+      k.ga += conc; if (s.start && conc === 0 && mn >= 45) k.cs++;
     });
     k.pts = k.g + k.a; k.minPerPt = k.pts ? Math.round(k.min / k.pts) : null; k.quote = n ? k.apps / n : 0;
     k.line = LINE[p.pos] || "XXX";
@@ -774,7 +779,7 @@ function renderKader(pk, tk){
   $("cards").className = kView === "list" ? "list plist" : "cards";
   if (kView === "list" && list.length){
     $("cards").innerHTML = list.map(p => `<button type="button" class="li pc-l ${p.line||"XXX"}" data-p="${esc(p.id)}"><span class="face">${face(p)}</span><span class="pos">${esc(p.pos||"–")}</span><div style="min-width:0"><b style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.name)}${p.captain?" ©":""}</b><span class="small muted">${p.nr ? "#"+p.nr : ""}</span></div>
-      <span class="nums"><span>${p.apps}<small>Sp.</small></span><span>${p.min}<small>Min</small></span><span>${p.g}<small>Tore</small></span><span>${p.a}<small>Ass.</small></span></span></button>`).join("");
+      <span class="nums"><span>${p.apps}<small>Sp.</small></span><span>${p.min}<small>Min</small></span>${p.pos === "TW" ? `<span>${p.ga}<small>Gegent.</small></span><span>${p.cs}<small>Zu 0</small></span>` : `<span>${p.g}<small>Tore</small></span><span>${p.a}<small>Ass.</small></span>`}</span></button>`).join("");
     $("cards").querySelectorAll(".pc-l").forEach(b => b.onclick = () => openProfile(b.dataset.p)); return;
   }
   $("cards").innerHTML = list.length ? list.map(card).join("") : `<p class="muted">Noch keine Spieler.${S.admin ? " Lege sie in den Einstellungen an." : ""}</p>`;
@@ -784,7 +789,7 @@ function card(p){
   return `<button type="button" class="pc ${p.line||LINE[p.pos]||"XXX"}" data-p="${esc(p.id)}" aria-label="${esc(p.name)}, ${esc(p.pos||"")}">
     <div class="tp"><div><div class="nr">${p.nr ?? "–"}</div><div class="ps">${esc(p.pos||"–")}</div></div>${p.captain ? `<span class="badge">CAPTAIN</span>` : ""}</div>
     <div class="avatar">${face(p)}</div><div class="name">${esc(sn(p))}</div>
-    <div class="st"><div><b>${p.apps ?? 0}</b><span>Spiele</span></div><div><b>${p.g ?? 0}</b><span>Tore</span></div><div><b>${p.a ?? 0}</b><span>Assists</span></div></div></button>`;
+    <div class="st">${p.pos === "TW" ? `<div><b>${p.apps ?? 0}</b><span>Spiele</span></div><div><b>${p.ga ?? 0}</b><span>Gegent.</span></div><div><b>${p.cs ?? 0}</b><span>Zu null</span></div>` : `<div><b>${p.apps ?? 0}</b><span>Spiele</span></div><div><b>${p.g ?? 0}</b><span>Tore</span></div><div><b>${p.a ?? 0}</b><span>Assists</span></div>`}</div></button>`;
 }
 function profileExtra(p){
   const ms = S.matches.filter(m => played(m) && m.stats && Object.keys(m.stats).length).sort(byDate);
@@ -822,7 +827,7 @@ function openProfile(id){
   $("pvBody").innerHTML = `<div style="display:grid;grid-template-columns:minmax(0,190px) 1fr;gap:16px" class="pv">
     <div>${card(p)}</div><div>
     <div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(96px,1fr))">
-      ${[[p.apps,"Spiele"],[p.starts,"Startelf"],[p.subs,"Eingewechselt"],[p.min,"Minuten"],[p.g,"Tore"],[p.a,"Assists"],[p.minPerPt ?? "–","Min/Scorer"],[Math.round(p.quote*100)+"%","Einsatzquote"],[`${p.y}/${p.r}`,"Gelb/Rot"],[p.year ? yr-p.year : "–","Alter"]]
+      ${(p.pos === "TW" ? [[p.ga,"Gegentore"],[p.min ? (p.ga / p.min * 90).toFixed(2) : "–","Gegentore / 90"],[p.cs,"Zu null"],[p.starts ? Math.round(p.cs / p.starts * 100) + "%" : "–","Zu-null-Quote"]] : []).concat([[p.apps,"Spiele"],[p.starts,"Startelf"],[p.subs,"Eingewechselt"],[p.min,"Minuten"],[p.g,"Tore"],[p.a,"Assists"],[p.minPerPt ?? "–","Min/Scorer"],[Math.round(p.quote*100)+"%","Einsatzquote"],[`${p.y}/${p.r}`,"Gelb/Rot"],[p.year ? yr-p.year : "–","Alter"]])
         .map(([v,l]) => `<div class="kpi"><div class="v" style="font-size:22px">${v}</div><div class="l">${l}</div></div>`).join("")}
     </div>
     ${profileExtra(p)}
@@ -849,6 +854,10 @@ function renderStats(pk, k){
   $("ptsChart").innerHTML = ptsChart(k.cum);
   const rank = (f, unit) => { const r = pk.filter(p => f(p) > 0).sort((a,b) => f(b) - f(a)).slice(0,6);
     return r.length ? r.map((p,i) => `<div class="li"><span class="muted" style="font:800 14px var(--display);width:18px">${i+1}</span><span class="face">${face(p)}</span><b>${esc(p.name)}</b><span class="n">${f(p)}</span></div>`).join("") : `<p class="small muted">Noch keine ${unit}.</p>`; };
+  const tw = pk.filter(p => p.pos === "TW" && p.apps).sort((a,b) => b.min - a.min);
+  $("keepers").innerHTML = tw.length ? tw.map(p => `<button type="button" class="li" data-p="${esc(p.id)}" style="width:100%;text-align:left;color:inherit;font:inherit;cursor:pointer"><span class="face">${face(p)}</span><div><b>${esc(p.name)}</b><div class="small muted">${p.apps} Spiele · ${p.min}' · ${p.min ? (p.ga / p.min * 90).toFixed(2) : "–"} Gegentore pro 90 Min</div></div>
+    <span class="nums" style="margin-left:auto;display:flex;gap:14px;font:800 18px var(--display);text-align:center"><span>${p.ga}<div class="small muted" style="font:700 9px var(--body)">GEGENT.</div></span><span>${p.cs}<div class="small muted" style="font:700 9px var(--body)">ZU NULL</div></span></span></button>`).join("") : `<p class="small muted">Noch keine Einsätze von Torhütern.</p>`;
+  $("keepers").querySelectorAll("[data-p]").forEach(b => b.onclick = () => openProfile(b.dataset.p));
   $("scorers").innerHTML = rank(p => p.g, "Tore"); $("assists").innerHTML = rank(p => p.a, "Vorlagen");
   const COLS = [["name","Spieler"],["apps","Spiele"],["starts","Startelf"],["subs","Eingew."],["min","Minuten"],["g","Tore"],["a","Assists"],["pts","Scorer"],["minPerPt","Min/Scorer"],["y","Gelb"],["r","Rot"]];
   const rows = [...pk].sort((a,b) => sortKey === "name" ? sortDir * a.name.localeCompare(b.name) : sortKey === "minPerPt" ? ((a.minPerPt ?? 1e9) - (b.minPerPt ?? 1e9)) * -sortDir : ((a[sortKey] ?? -1) - (b[sortKey] ?? -1)) * sortDir);
