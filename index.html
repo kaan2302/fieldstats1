@@ -203,6 +203,7 @@ thead th[data-k]{cursor:pointer}
 thead th[aria-sort]{color:var(--cyan)}
 tr.us td{background:rgba(255,90,54,.12);font-weight:800}
 tr.rel td:first-child{box-shadow:inset 3px 0 0 var(--loss)}tr.relq td:first-child{box-shadow:inset 3px 0 0 var(--draw)}
+tr.promo td:first-child{box-shadow:inset 3px 0 0 var(--win)}tr.cutp td{border-bottom:2px solid var(--win)}
 tr.cut td{border-top:2px solid var(--loss)}tr.cutq td{border-top:2px dashed var(--draw)}
 svg text{fill:var(--muted);font:11px var(--body)}
 
@@ -390,6 +391,9 @@ dialog::backdrop{background:rgba(3,6,14,.75);backdrop-filter:blur(3px)}
             <label for="mLeague">Liga<input id="mLeague" placeholder="2. Liga regional"></label>
             <label for="mSeason">Saison<input id="mSeason" placeholder="2026/27"></label>
             <label for="mFbName">Name auf football.ch<input id="mFbName" placeholder="SC Binningen"></label>
+            <label for="mPromo">Aufsteiger<input id="mPromo" inputmode="numeric" placeholder="1"></label>
+            <label for="mRel">Absteiger (fix)<input id="mRel" inputmode="numeric" placeholder="2"></label>
+            <label for="mRelQ">Absteiger (möglich)<input id="mRelQ" inputmode="numeric" placeholder="3"></label>
           </div>
           <p class="small muted">«Name auf football.ch» muss so geschrieben sein wie im Matchcenter, damit der Import eure Spiele erkennt.</p>
           <div class="h" style="margin:8px 0 0">
@@ -696,11 +700,32 @@ function oppNames(){
   S.matches.forEach(m => add(m.opp)); S.fixtures.forEach(f => { add(f.home); add(f.away); }); (S.table?.rows||[]).forEach(r => add(r.team));
   return [...set.values()].sort((a,b) => a.localeCompare(b));
 }
-function relCls(r){ const rows = S.table?.rows || [], N = rows.length, a = +(S.meta.relegation||0), b = +(S.meta.relegationMaybe||a);
-  if (!N || !a) return ""; const c = [];
+function relCls(r){ const rows = S.table?.rows || [], N = rows.length, a = +(S.meta.relegation||0), b = +(S.meta.relegationMaybe||a), pr = +(S.meta.promotion||0);
+  if (!N) return ""; const c = [];
+  if (pr && r.rank <= pr) c.push("promo"); if (pr && r.rank === pr) c.push("cutp");
+  if (!a) return c.join(" ");
   if (r.rank > N - a) c.push("rel"); else if (r.rank > N - b) c.push("relq");
   if (r.rank === N - a + 1) c.push("cut"); if (b > a && r.rank === N - b + 1) c.push("cutq");
   return c.join(" "); }
+// Tabellen-Situation: Aufstiegs-, Abstiegskampf oder Mittelfeld – je nach Platz und Punkteabstand
+function situation(){
+  const rows = S.table?.rows || [], N = rows.length, us = rows.find(r => isOurs(r.team)); if (!N || !us) return null;
+  const pr = +(S.meta.promotion||1), a = +(S.meta.relegation||0), b = +(S.meta.relegationMaybe||a), at = k => rows.find(r => r.rank === k);
+  const up = at(pr), safe = a ? at(N - a) : null, firstDown = a ? at(N - a + 1) : null;
+  const gapUp = up ? up.pts - us.pts : null;                       // Rückstand auf den letzten Aufstiegsplatz
+  const gapDown = a && firstDown ? us.pts - firstDown.pts : null;  // Vorsprung auf den ersten Abstiegsplatz
+  let mode = "mitte";
+  if (a && (us.rank > N - b || (gapDown != null && gapDown <= 4))) mode = "ab";
+  else if (us.rank <= pr || (gapUp != null && gapUp <= 4)) mode = "auf";
+  const i = rows.indexOf(us), win = mode === "ab" ? rows.slice(-6) : mode === "auf" ? rows.slice(0, 6) : rows.slice(Math.max(0, Math.min(i - 2, N - 5)), Math.max(0, Math.min(i - 2, N - 5)) + 5);
+  const title = mode === "ab" ? "Abstiegskampf" : mode === "auf" ? (pr === 1 ? "Titelkampf" : "Aufstiegskampf") : "Tabellennachbarn";
+  let kv, kl, ks;
+  if (mode === "ab"){ kv = us.rank <= N - a ? `+${gapDown}` : `–${safe.pts - us.pts}`; kl = "Abstand zum Strich"; ks = us.rank <= N - a ? `Vorsprung auf Platz ${N - a + 1}` : `Platz ${N - a}: ${safe.team}`; }
+  else if (mode === "auf"){ if (us.rank <= pr){ const nx = at(pr + 1); kv = `+${us.pts - (nx?.pts ?? us.pts)}`; kl = pr === 1 ? "Vorsprung an der Spitze" : "Vorsprung Aufstiegsplatz"; ks = nx ? `auf Platz ${pr + 1}: ${nx.team}` : ""; }
+    else { kv = `–${gapUp}`; kl = pr === 1 ? "Rückstand auf Platz 1" : "Rückstand Aufstiegsplatz"; ks = `Platz ${pr}: ${up.team}`; } }
+  else { const above = at(us.rank - 1), below = at(us.rank + 1); kv = `${above ? "–" + (above.pts - us.pts) : "–"} / ${below ? "+" + (us.pts - below.pts) : "–"}`; kl = "Abstand nach oben / unten"; ks = gapUp != null && gapDown != null ? `Aufstieg ${gapUp} Pkt weg, Strich ${gapDown} Pkt hinter uns` : ""; }
+  return {mode, title, rows:win, us, kv, kl, ks, pr, a, b, N, gapUp, gapDown};
+}
 const nextMatch = () => S.matches.filter(m => !played(m) && m.date >= new Date().toISOString().slice(0,10)).sort(byDate)[0];
 
 // ================= render =================
@@ -815,11 +840,13 @@ function deepUs(){
   const games = n => n && isOurs(n) ? S.matches.filter(m => !played(m)).map(m => m.opp)
     : S.fixtures.filter(f => (f.hg == null || f.hg === "") && (norm(f.home) === norm(n) || norm(f.away) === norm(n))).map(f => norm(f.home) === norm(n) ? f.away : f.home)
       .concat(S.matches.filter(m => !played(m) && norm(m.opp) === norm(n)).map(() => S.meta.fbName || S.meta.club));
-  const bottom = rows.slice(-5).map(r => { const g = games(r.team), str = g.map(ppgT).filter(v => v != null);
+  const sit = situation(), win = sit ? (sit.mode === "ab" ? rows.slice(-5) : sit.mode === "auf" ? rows.slice(0, 5) : sit.rows) : [];
+  const bottom = win.map(r => { const g = games(r.team), str = g.map(ppgT).filter(v => v != null);
     const left = g.length; return {r, left, str: str.length ? str.reduce((s,v)=>s+v,0)/str.length : null, proj: r.sp ? Math.round(r.pts + r.pts / r.sp * left) : r.pts}; });
   return {full:full.length, all:ms.length, st, imp, defDuo, offDuo, subG, subA, noSub, withXi:withXi.length, bottom};
 }
-function relGap(){ const rows = S.table?.rows || [], N = rows.length, a = +(S.meta.relegation||0), b = +(S.meta.relegationMaybe||a), us = rows.find(r => isOurs(r.team));
+function relGap(){ const rows = S.table?.rows || [], N = rows.length, a = +(S.meta.relegation||0), b = +(S.meta.relegationMaybe||a), us = rows.find(r => isOurs(r.team)), sit = situation();
+  if (sit && sit.mode !== "ab"){ return `<div class="list" style="margin:8px 0">${sit.gapUp != null ? `<div class="li"><span class="dot S" style="width:10px;height:10px"></span><b>${sit.pr === 1 ? "Platz 1" : "Aufstiegsplatz " + sit.pr}</b><span class="small muted" style="margin-left:auto">${sit.us.rank <= sit.pr ? "wir sind drauf" : sit.gapUp + " Pkt Rückstand"}</span></div>` : ""}${sit.gapDown != null ? `<div class="li"><span class="dot N" style="width:10px;height:10px"></span><b>Strich</b><span class="small muted" style="margin-left:auto">${sit.gapDown} Pkt Vorsprung</span></div>` : ""}</div>`; }
   if (!N || !a || !us) return "";
   const gap = k => { const t = rows.find(r => r.rank === k); return t ? t.pts - us.pts : null; }, safeA = N - a, safeB = N - b;
   const txt = k => { const g = gap(k); return us.rank <= k ? `wir sind drüber (${-g >= 0 ? "+" + (-g) : -g} Pkt Vorsprung auf Platz ${k + 1})` : `${g} Pkt Rückstand auf Platz ${k}`; };
@@ -847,7 +874,7 @@ function renderDeep(){
     <div><h3>Joker · Impact von der Bank</h3><div class="list"><div class="li"><b>Tore von Eingewechselten</b><span class="n">${d.subG.length}</span></div>
       <div class="li"><b>Vorlagen von Eingewechselten</b><span class="n">${d.subA.length}</span></div></div>
       ${d.noSub ? `<p class="small muted" style="margin-top:6px">${d.noSub} Spiele ohne erfasste Wechsel</p>` : ""}</div>
-    <div><h3>Restprogramm &amp; Ligaerhalt</h3>${d.bottom.length ? `<div class="scroll"><table><thead><tr><th class="l">Team</th><th>Pkt</th><th>Übrig</th><th>Gegnerstärke</th><th>Prognose</th></tr></thead><tbody>${d.bottom.map(x => `<tr class="${isOurs(x.r.team)?"us":""} ${relCls(x.r)}"><td class="l">${x.r.rank}. ${esc(x.r.team)}</td><td><strong>${x.r.pts}</strong></td><td>${x.left}</td><td>${f2(x.str)}</td><td>${x.proj}</td></tr>`).join("")}</tbody></table></div>
+    <div><h3>Restprogramm ${(() => { const m = situation()?.mode; return m === "ab" ? "&amp; Ligaerhalt" : m === "auf" ? "&amp; Aufstieg" : "&amp; Tabellennachbarn"; })()}</h3>${d.bottom.length ? `<div class="scroll"><table><thead><tr><th class="l">Team</th><th>Pkt</th><th>Übrig</th><th>Gegnerstärke</th><th>Prognose</th></tr></thead><tbody>${d.bottom.map(x => `<tr class="${isOurs(x.r.team)?"us":""} ${relCls(x.r)}"><td class="l">${x.r.rank}. ${esc(x.r.team)}</td><td><strong>${x.r.pts}</strong></td><td>${x.left}</td><td>${f2(x.str)}</td><td>${x.proj}</td></tr>`).join("")}</tbody></table></div>
       ${relGap()}
       ` : `<p class="small muted">Braucht eine Tabelle.</p>`}</div>
   </div>`;
@@ -864,10 +891,10 @@ function formChart(ms){
     ${ms.map((m,i) => { const r = res(m); return `<circle data-tip="${esc(`${m.home?"vs.":"@"} ${m.opp} ${m.gf}:${m.ga}`)}" cx="${X(i)}" cy="${Y(roll[i])}" r="5" fill="var(--${r==="S"?"win":r==="U"?"draw":"loss"})" stroke="#080c18" stroke-width="2"/>`; }).join("")}</svg>`;
 }
 function relBars(){
-  const rows = (S.table?.rows || []).slice(-6); if (!rows.length) return "";
+  const sit = situation(); const rows = sit ? sit.rows : []; if (!rows.length) return "";
   const max = Math.max(...rows.map(r => r.pts), 1);
   return `<div class="bars">${rows.map(r => { const c = relCls(r);
-    return `<div class="bar ${isOurs(r.team)?"us":""}"><span class="t">${r.rank}. ${esc(r.team)}</span><span class="tr"><span class="fl" style="display:block;width:${r.pts/max*100}%;background:var(--${/\brel\b/.test(c)?"loss":/relq/.test(c)?"draw":isOurs(r.team)?"hot":"muted"})"></span></span><span class="v">${r.pts}</span></div>`; }).join("")}</div>`;
+    return `<div class="bar ${isOurs(r.team)?"us":""}"><span class="t">${r.rank}. ${esc(r.team)}</span><span class="tr"><span class="fl" style="display:block;width:${r.pts/max*100}%;background:var(--${/\bpromo\b/.test(c)?"win":/\brel\b/.test(c)?"loss":/relq/.test(c)?"draw":isOurs(r.team)?"hot":"muted"})"></span></span><span class="v">${r.pts}</span></div>`; }).join("")}</div>`;
 }
 function insights(pk){
   const d = deepUs(), ms = S.matches.filter(m => played(m) && official(m)), out = [];
@@ -881,19 +908,18 @@ function insights(pk){
 }
 function renderStart(pk, tk){
   const row = (S.table?.rows||[]).find(r => isOurs(r.team)), ms = S.matches.filter(m => played(m) && official(m)).sort(byDate);
-  const rows = S.table?.rows || [], N = rows.length, a = +(S.meta.relegation||0), safe = rows.find(r => r.rank === N - a);
-  const gap = row && safe ? (row.rank <= N - a ? `+${row.pts - (rows.find(r => r.rank === N - a + 1)?.pts ?? row.pts)}` : `–${safe.pts - row.pts}`) : "–";
+  const sit = situation();
   const kpi = (v,l,s) => `<div class="kpi"><div class="v" style="font-size:26px">${v}</div><div class="l">${l}</div>${s?`<div class="s">${s}</div>`:""}</div>`;
   $("stInfo").textContent = "Saison " + S.season;
   if (!ms.length){ $("startBody").innerHTML = `<p class="muted">Erscheint nach dem ersten gespielten Spiel.</p>`; return; }
   $("startBody").innerHTML = `<div class="kpis">
       ${kpi(row ? row.rank + "." : "–", "Tabellenplatz", row ? `${row.pts} Punkte aus ${row.sp} Spielen` : "")}
-      ${kpi(gap + " Pkt", "Abstand zum Strich", safe ? `Platz ${N - a}: ${esc(safe.team)}` : "")}
+      ${sit ? kpi(sit.kv + " Pkt", sit.kl, esc(sit.ks)) : ""}
       ${kpi(`<span style="display:inline-flex;gap:3px">${tk.form.map(r => `<span class="dot ${r}">${r}</span>`).join("")}</span>`, "Form letzte 5", `${tk.S}-${tk.U}-${tk.N} gesamt`)}
     </div>
     <div class="two" style="margin-top:12px">
       <div><h3>Formkurve</h3>${formChart(ms)}</div>
-      ${relBars() ? `<div><h3>Abstiegskampf</h3>${relBars()}</div>` : ""}
+      ${relBars() ? `<div><h3>${sit.title}</h3>${relBars()}</div>` : ""}
     </div>
     ${insights(pk).length ? `<h3 style="margin-top:14px">Das Wichtigste</h3>` : ""}
     <div class="list">${insights(pk).map((t,i) => `<div class="insight"><span class="i">${i+1}</span><span>${esc(t)}</span></div>`).join("")}</div>`;
@@ -1111,7 +1137,8 @@ function renderSettings(){
   document.querySelectorAll(".side button").forEach(b => b.setAttribute("aria-current", b.dataset.s === setView));
   document.querySelectorAll("[data-sp]").forEach(p => p.hidden = p.dataset.sp !== setView);
   const meta = S.meta || {}, act = document.activeElement && document.activeElement.id;
-  if (!["mClub","mTeam","mLeague","mSeason","mFbName"].includes(act)){
+  if (!["mClub","mTeam","mLeague","mSeason","mFbName","mPromo","mRel","mRelQ"].includes(act)){
+    $("mPromo").value = meta.promotion ?? ""; $("mRel").value = meta.relegation ?? ""; $("mRelQ").value = meta.relegationMaybe ?? "";
     $("mClub").value = meta.club || ""; $("mTeam").value = meta.team || ""; $("mLeague").value = meta.league || ""; $("mSeason").value = meta.season || ""; $("mFbName").value = meta.fbName || ""; }
   $("logoPrev").innerHTML = (pendingLogo !== undefined ? pendingLogo : meta.logo) ? `<img src="${esc(pendingLogo !== undefined ? pendingLogo : meta.logo)}" alt="">` : esc(initials(meta.club || "SC"));
   const ps = [...S.players].sort((a,b) => (POS_ORDER[a.pos]??99)-(POS_ORDER[b.pos]??99) || (a.nr||99)-(b.nr||99));
@@ -1129,7 +1156,7 @@ function renderSettings(){
 document.querySelectorAll(".side button").forEach(b => b.onclick = () => { setView = b.dataset.s; renderSettings(); });
 $("logoIn").onchange = e => { const f = e.target.files[0]; if (f) shrink(f, 200, d => { pendingLogo = d; renderSettings(); }); };
 $("saveMeta").onclick = async () => {
-  const meta = {...S.meta, club:$("mClub").value.trim(), team:$("mTeam").value.trim(), league:$("mLeague").value.trim(), season:$("mSeason").value.trim(), fbName:$("mFbName").value.trim()};
+  const meta = {...S.meta, club:$("mClub").value.trim(), team:$("mTeam").value.trim(), league:$("mLeague").value.trim(), season:$("mSeason").value.trim(), fbName:$("mFbName").value.trim(), promotion:num($("mPromo").value), relegation:num($("mRel").value), relegationMaybe:num($("mRelQ").value) || num($("mRel").value)};
   if (pendingLogo !== undefined) meta.logo = pendingLogo;
   try{ await putDoc("team/meta", "meta", meta); pendingLogo = undefined; $("metaMsg").textContent = "Gespeichert."; }catch(e){ $("metaMsg").textContent = errMsg(e); }
 };
@@ -1346,36 +1373,53 @@ function aufgebotSheet(info){
 }
 async function aufgebotPDF(o){
   await loadJsPDF(); const {jsPDF} = window.jspdf, doc = new jsPDF({unit:"mm", format:"a4"});
-  const W = 210, club = S.meta.club || "Team", team = S.meta.team ? " · " + S.meta.team : "";
-  doc.setFillColor(8,12,24); doc.rect(0, 0, W, 34, "F");
-  let tx = 14; if (S.meta.logo){ try{ doc.addImage(S.meta.logo, S.meta.logo.includes("png") ? "PNG" : "JPEG", 12, 6, 22, 22); tx = 40; }catch(e){} }
-  doc.setTextColor(255,255,255); doc.setFont("helvetica","bold"); doc.setFontSize(20); doc.text("AUFGEBOT", tx, 16);
-  doc.setFontSize(11); doc.setFont("helvetica","normal"); doc.text(club + team, tx, 24);
-  doc.setTextColor(20,20,20); doc.setFont("helvetica","bold"); doc.setFontSize(16);
-  doc.text(`${o.home ? club + " – " + o.opp : o.opp + " – " + club}`, 14, 46);
-  doc.setFont("helvetica","normal"); doc.setFontSize(11);
+  const W = 210, H = 297, club = S.meta.club || "Team", team = S.meta.team || "";
+  const C = {bg:[8,12,24], panel:[18,26,46], line:[40,52,82], ink:[238,242,255], muted:[140,152,186], hot:[255,90,54], hot2:[226,62,120],
+    TOR:[227,204,142], ABW:[61,220,200], MIT:[167,139,250], ANG:[255,142,110], XXX:[140,152,186]};
+  const fill = c => doc.setFillColor(...c), stroke = c => doc.setDrawColor(...c), ink = c => doc.setTextColor(...c);
+  const font = (w, sz) => { doc.setFont("helvetica", w); doc.setFontSize(sz); };
+  // Hintergrund
+  fill(C.bg); doc.rect(0, 0, W, H, "F");
+  // Kopf mit Farbverlauf (Streifen von hot nach hot2)
+  for (let i = 0; i < 40; i++){ const t = i / 39; fill(C.hot.map((v,k) => Math.round(v + (C.hot2[k] - v) * t))); doc.rect(i * W / 40, 0, W / 40 + .3, 3, "F"); }
+  let tx = 14; if (S.meta.logo){ try{ fill(C.panel); doc.roundedRect(12, 10, 24, 24, 4, 4, "F"); doc.addImage(S.meta.logo, S.meta.logo.includes("png") ? "PNG" : "JPEG", 13.5, 11.5, 21, 21); tx = 42; }catch(e){} }
+  ink(C.hot); font("bold", 10); doc.text("AUFGEBOT", tx, 17);
+  ink(C.ink); font("bold", 20); doc.text(club.toUpperCase(), tx, 26);
+  ink(C.muted); font("normal", 10); doc.text([team, S.meta.league].filter(Boolean).join(" · "), tx, 32);
+  // Spielkarte
+  fill(C.panel); doc.roundedRect(12, 40, W - 24, 30, 4, 4, "F");
+  ink(C.muted); font("bold", 8); doc.text(o.home ? "HEIMSPIEL" : "AUSWÄRTSSPIEL", 18, 48);
+  ink(C.ink); font("bold", 16); doc.text(`${o.home ? "vs." : "@"} ${String(o.opp).toUpperCase()}`, 18, 57);
   const d = new Date(o.date + "T12:00").toLocaleDateString("de-CH", {weekday:"long", day:"numeric", month:"long", year:"numeric"});
-  const lines = [`${d}${o.time ? ", Anpfiff " + o.time : ""} · ${o.home ? "Heimspiel" : "Auswärtsspiel"}`];
-  if (o.meet || o.place) lines.push(`Besammlung: ${[o.meet, o.place].filter(Boolean).join(", ")}`);
-  if (o.note) lines.push(o.note);
-  lines.forEach((t, i) => doc.text(t, 14, 54 + i * 6));
-  // Spielfeld
-  const px = 14, py = 54 + lines.length * 6 + 4, pw = 118, ph = 168;
-  doc.setFillColor(46,125,70); doc.rect(px, py, pw, ph, "F");
-  doc.setDrawColor(255,255,255); doc.setLineWidth(.5); doc.rect(px+3, py+3, pw-6, ph-6); doc.line(px+3, py+ph/2, px+pw-3, py+ph/2); doc.circle(px+pw/2, py+ph/2, 14);
-  doc.rect(px+pw/2-26, py+3, 52, 22); doc.rect(px+pw/2-26, py+ph-25, 52, 22);
+  ink(C.muted); font("normal", 10); doc.text(d + (o.time ? " · Anpfiff " + o.time : ""), 18, 64);
+  if (o.meet || o.place){ ink(C.muted); font("bold", 8); doc.text("BESAMMLUNG", W - 18, 48, {align:"right"}); ink(C.hot); font("bold", 16); doc.text(o.meet || "–", W - 18, 57, {align:"right"});
+    ink(C.muted); font("normal", 10); doc.text(o.place || "", W - 18, 64, {align:"right"}); }
+  let top = 76;
+  if (o.note){ ink(C.ink); font("normal", 10); const ln = doc.splitTextToSize("Hinweis: " + o.note, W - 28); doc.text(ln, 14, top + 2); top += ln.length * 5 + 3; }
+  // Spielfeld (dunkelgrün mit Streifen)
+  const px = 12, py = top, pw = 122, ph = 172;
+  fill([20,61,44]); doc.roundedRect(px, py, pw, ph, 4, 4, "F");
+  for (let i = 0; i < 8; i++) if (i % 2){ fill([24,70,51]); doc.rect(px + 3, py + 3 + i * (ph - 6) / 8, pw - 6, (ph - 6) / 8, "F"); }
+  stroke([96,150,122]); doc.setLineWidth(.4); doc.rect(px + 4, py + 4, pw - 8, ph - 8); doc.line(px + 4, py + ph/2, px + pw - 4, py + ph/2); doc.circle(px + pw/2, py + ph/2, 13);
+  doc.rect(px + pw/2 - 25, py + 4, 50, 20); doc.rect(px + pw/2 - 25, py + ph - 24, 50, 20);
   const xi = S.players.filter(p => o.xi.includes(p.id)), placed = placeXi(xi, o.layout);
-  placed.forEach(q => { const cx = px + q.x/100*pw, cy = py + q.y/100*ph;
-    doc.setFillColor(255,255,255); doc.circle(cx, cy - 3, 5, "F"); doc.setTextColor(20,20,20); doc.setFont("helvetica","bold"); doc.setFontSize(9);
-    doc.text(String(q.p.nr || ""), cx, cy - 1.8, {align:"center"});
-    doc.setTextColor(255,255,255); doc.setFontSize(8.5); doc.text(sn(q.p), cx, cy + 6, {align:"center"});
-    doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.text(q.pos, cx, cy + 9.5, {align:"center"}); });
-  // Listen rechts
-  let y = py + 4; const rx = 140; doc.setTextColor(20,20,20);
-  const block = (title, ps) => { doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text(title, rx, y); y += 6; doc.setFont("helvetica","normal"); doc.setFontSize(10);
-    ps.forEach(p => { doc.text(`${p.nr ? String(p.nr).padStart(2," ") + "  " : ""}${p.name}`, rx, y); y += 5.2; }); y += 4; };
-  block("Startelf", placed.map(q => q.p)); block("Ersatz", S.players.filter(p => (o.bench||[]).includes(p.id)));
-  doc.setFontSize(8); doc.setTextColor(120,120,120); doc.text(`Erstellt ${new Date().toLocaleDateString("de-CH")}`, 14, 290);
+  placed.forEach(q => { const cx = Math.max(px + 13, Math.min(px + pw - 13, px + q.x/100*pw)), cy = Math.max(py + 10, Math.min(py + ph - 9, py + q.y/100*ph)), col = C[LINE[q.pos] || "XXX"];
+    fill(col); doc.roundedRect(cx - 11, cy - 8, 22, 15, 3, 3, "F");
+    ink([12,16,30]); font("bold", 11); doc.text(String(q.p.nr || "–"), cx, cy - 2.2, {align:"center"});
+    font("bold", 7); doc.text(sn(q.p), cx, cy + 2, {align:"center"});
+    font("normal", 6); doc.text(q.pos, cx, cy + 5.2, {align:"center"}); });
+  ink(C.ink); font("bold", 9); fill(C.bg); doc.roundedRect(px + 4, py + 4, 18, 7, 2, 2, "F");
+  const cnt = l => placed.filter(q => LINE[q.pos] === l).length; doc.text([cnt("ABW"), cnt("MIT"), cnt("ANG")].filter(Boolean).join("-"), px + 13, py + 9, {align:"center"});
+  // Listen rechts als Karten
+  const rx = 140, rw = W - rx - 12; let y = top;
+  const block = (title, ps) => { const h = 12 + Math.max(1, ps.length) * 6.2; fill(C.panel); doc.roundedRect(rx, y, rw, h, 4, 4, "F");
+    ink(C.hot); font("bold", 8); doc.text(title.toUpperCase(), rx + 5, y + 7); let yy = y + 13.5;
+    if (!ps.length){ ink(C.muted); font("normal", 9); doc.text("–", rx + 5, yy); }
+    ps.forEach(p => { ink(C.muted); font("bold", 9); doc.text(String(p.nr || ""), rx + 9, yy, {align:"right"}); ink(C.ink); font("normal", 9); doc.text(doc.splitTextToSize(p.name, rw - 16)[0], rx + 12, yy); yy += 6.2; });
+    y += h + 5; };
+  block("Startelf", placed.map(q => q.p).sort((a,b) => (POS_ORDER[a.pos]??99) - (POS_ORDER[b.pos]??99)));
+  block("Ersatz", S.players.filter(p => (o.bench||[]).includes(p.id)));
+  ink(C.muted); font("normal", 7); doc.text(`Erstellt am ${new Date().toLocaleDateString("de-CH")}`, 12, H - 8);
   doc.save(`Aufgebot ${o.date} ${o.opp}.pdf`.replace(/[\\/:*?"<>|]/g, "-"));
 }
 // ================= Tabelle & Resultate (ohne KI) =================
@@ -1455,7 +1499,7 @@ function autoUsText(){
   const rows = S.table?.rows || [], us = rows.find(r => isOurs(r.team)), N = rows.length, rel = +(S.meta.relegation||0), out = [];
   const S_ = ms.filter(m => res(m) === "S").length, U_ = ms.filter(m => res(m) === "U").length, gf = ms.reduce((s,m) => s + +m.gf, 0), ga = ms.reduce((s,m) => s + +m.ga, 0);
   const tw = trendWord(pp(l5), pp(bf));
-  out.push(`FORM & TREND\n${us ? `Platz ${us.rank} mit ${us.pts} Punkten aus ${us.sp} Spielen. ` : ""}${S_} Siege, ${U_} Remis, ${ms.length - S_ - U_} Niederlagen, ${gf}:${ga} Tore. Letzte 5 Spiele: ${pp(l5).toFixed(2)} Punkte pro Spiel${bf.length ? `, vorher ${pp(bf).toFixed(2)} – Trend ${tw}` : ""}.${us && rel && N ? (us.rank > N - rel ? ` Rückstand auf den Strich (Platz ${N - rel}): ${(rows.find(r => r.rank === N - rel)?.pts ?? us.pts) - us.pts} Punkte.` : ` Vorsprung auf den Strich: ${us.pts - (rows.find(r => r.rank === N - rel + 1)?.pts ?? us.pts)} Punkte.`) : ""}`);
+  out.push(`FORM & TREND\n${us ? `Platz ${us.rank} mit ${us.pts} Punkten aus ${us.sp} Spielen. ` : ""}${S_} Siege, ${U_} Remis, ${ms.length - S_ - U_} Niederlagen, ${gf}:${ga} Tore. Letzte 5 Spiele: ${pp(l5).toFixed(2)} Punkte pro Spiel${bf.length ? `, vorher ${pp(bf).toFixed(2)} – Trend ${tw}` : ""}.${(() => { const t = situation(); if (!t) return ""; return t.mode === "ab" ? ` Abstiegskampf: ${t.kl} ${t.kv} Punkte.` : t.mode === "auf" ? ` ${t.title}: ${t.kl} ${t.kv} Punkte.` : ` Gesichertes Mittelfeld: ${t.ks}.`; })()}`);
   const gfB = buckets(ms.flatMap(m => (m.goals||[]).map(g => g.min))), gaB = buckets(ms.flatMap(m => (m.against||[]).map(g => g.min)));
   const mx = a => a.indexOf(Math.max(...a)), first = gaB[0] + gaB[1], late = gfB[5];
   out.push(`WANN FALLEN UNSERE TORE\nDie meisten eigenen Tore in den Minuten ${BL[mx(gfB)]} (${gfB[mx(gfB)]}), die meisten Gegentore in den Minuten ${BL[mx(gaB)]} (${gaB[mx(gaB)]}).${first >= gaB.reduce((s,v)=>s+v,0) * .35 ? ` Schwacher Start: ${first} Gegentore bis zur 30. Minute.` : ""}${late >= gfB.reduce((s,v)=>s+v,0) * .3 ? ` Starke Schlussphase: ${late} Tore ab der 76. Minute.` : ""}`);
