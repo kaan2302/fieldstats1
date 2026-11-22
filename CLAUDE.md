@@ -6,7 +6,8 @@ Admin: Kaa (kaanyildiz1402@gmail.com). Antworte auf Deutsch (Schweizer Rechtschr
 ## Daten lesen und schreiben
 Immer über `python3 tools/sb.py` (siehe Kopf der Datei). Der Schlüssel `SUPABASE_SECRET_KEY` liegt in `.env`
 oder in der Umgebung. Nie ausgeben, nie committen, nie in eine Datei ausser `.env` schreiben.
-Datenformat: siehe `README.md` (Tabelle `docs`, Felder `coll`, `id`, `data`).
+Datenformat: siehe `README.md` (Tabelle `docs`, Felder `team_id`, `coll`, `id`, `data`). Mehrere Teams: Standard-Team ist `sc-binningen`,
+für ein anderes `TEAM=<team-id>` vor den Befehl setzen. Teams stehen in der Tabelle `teams`.
 
 Wichtige Regeln:
 - Unser Team = `team/meta.fbName`, sonst `team/meta.club`. Spiele mit unserem Team gehören nach `matches`, alle anderen nach `fixtures`.

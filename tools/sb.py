@@ -5,6 +5,8 @@ Braucht den SECRET key (sb_secret_...) in der Umgebungsvariable SUPABASE_SECRET_
 oder in einer Datei .env im Repo-Ordner (wird nicht committet):
     SUPABASE_SECRET_KEY=sb_secret_...
 
+Team: Standard ist sc-binningen, ein anderes mit TEAM=<team-id> davor (z. B. TEAM=fc-muster python3 tools/sb.py list matches).
+
 Beispiele:
     python3 tools/sb.py list matches
     python3 tools/sb.py get team table
@@ -16,6 +18,8 @@ Beispiele:
 import json, os, sys, urllib.request, urllib.parse, pathlib
 
 URL = "https://mcdjzcisihabimpvmgzg.supabase.co/rest/v1/docs"
+TEAM = os.environ.get("TEAM", "sc-binningen")
+TQ = "&team_id=eq." + urllib.parse.quote(TEAM)
 
 
 def key():
@@ -54,23 +58,23 @@ def main():
         sys.exit(__doc__)
     cmd = a[0]
     if cmd == "list":
-        q = "?select=id,data&coll=eq." + urllib.parse.quote(a[1])
+        q = "?select=id,data&coll=eq." + urllib.parse.quote(a[1]) + TQ
         for r in call("GET", q):
             print(json.dumps({"id": r["id"], **r["data"]}, ensure_ascii=False))
     elif cmd == "get":
-        q = f"?select=data&coll=eq.{urllib.parse.quote(a[1])}&id=eq.{urllib.parse.quote(a[2])}"
+        q = f"?select=data&coll=eq.{urllib.parse.quote(a[1])}&id=eq.{urllib.parse.quote(a[2])}" + TQ
         r = call("GET", q)
         print(json.dumps(r[0]["data"] if r else None, ensure_ascii=False, indent=2))
     elif cmd == "put":
-        call("POST", "?on_conflict=coll,id", [{"coll": a[1], "id": a[2], "data": read_json(a[3])}], "resolution=merge-duplicates")
+        call("POST", "?on_conflict=team_id,coll,id", [{"team_id": TEAM, "coll": a[1], "id": a[2], "data": read_json(a[3])}], "resolution=merge-duplicates")
         print("ok")
     elif cmd == "put-many":
-        rows = read_json(a[1])
+        rows = [{"team_id": TEAM, **r} for r in read_json(a[1])]
         for i in range(0, len(rows), 200):
-            call("POST", "?on_conflict=coll,id", rows[i:i + 200], "resolution=merge-duplicates")
+            call("POST", "?on_conflict=team_id,coll,id", rows[i:i + 200], "resolution=merge-duplicates")
         print(f"ok, {len(rows)} Zeilen")
     elif cmd == "delete":
-        call("DELETE", f"?coll=eq.{urllib.parse.quote(a[1])}&id=eq.{urllib.parse.quote(a[2])}")
+        call("DELETE", f"?coll=eq.{urllib.parse.quote(a[1])}&id=eq.{urllib.parse.quote(a[2])}" + TQ)
         print("ok")
     else:
         sys.exit(__doc__)
