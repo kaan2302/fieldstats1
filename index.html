@@ -223,9 +223,9 @@ svg text{fill:var(--muted);font:11px var(--body)}
 
 /* settings */
 .set{display:grid;grid-template-columns:210px 1fr;gap:14px;align-items:start}
-@media (max-width:760px){.set{grid-template-columns:1fr}}
+@media (max-width:760px){.set{grid-template-columns:minmax(0,1fr)}.set>*{min-width:0}}
 .side{display:flex;flex-direction:column;gap:4px;position:sticky;top:76px}
-@media (max-width:760px){.side{flex-direction:row;overflow-x:auto;position:static}}
+@media (max-width:760px){.side{flex-direction:row;overflow-x:auto;position:static;max-width:100%}.side button{padding:8px 10px}}
 .side button{display:flex;align-items:center;gap:10px;text-align:left;border:1px solid transparent;background:transparent;border-radius:12px;padding:10px 12px;font-weight:800;cursor:pointer;color:var(--muted);white-space:nowrap}
 .side button .i{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:var(--panel2);font:800 13px var(--display);color:var(--ink);flex:none}
 .side button[aria-current="true"]{background:var(--panel);border-color:var(--line);color:var(--ink)}
@@ -347,6 +347,7 @@ dialog::backdrop{background:rgba(3,6,14,.75);backdrop-filter:blur(3px)}
         <button type="button" data-s="verein"><span class="i">V</span>Verein</button>
         <button type="button" data-s="spieler"><span class="i">S</span>Spieler</button>
         <button type="button" data-s="spiele"><span class="i">M</span>Spiele</button>
+        <button type="button" data-s="liga"><span class="i">#</span>Tabelle &amp; Resultate</button>
         <button type="button" data-s="import"><span class="i">⇣</span>Import &amp; Analysen</button>
         <button type="button" data-s="zugriff"><span class="i">🔒</span>Zugriff &amp; Daten</button>
       </div>
@@ -378,6 +379,24 @@ dialog::backdrop{background:rgba(3,6,14,.75);backdrop-filter:blur(3px)}
         <div class="panel" data-sp="spiele" hidden>
           <div class="h"><h2>Spiele</h2><button class="btn hot sm" type="button" id="addMatch">+ Spiel</button></div>
           <div id="sMatches"></div>
+        </div>
+        <!-- Tabelle & Resultate -->
+        <div class="panel" data-sp="liga" hidden>
+          <div class="h"><h2>Tabelle einfügen</h2></div>
+          <p style="margin-top:0">Auf football.ch die Tabelle markieren, kopieren und hier einfügen. Die App liest sie selbst aus.</p>
+          <textarea id="tPaste" rows="5" placeholder="1. FC Aesch 13 11 1 1 57 : 18 +39 34&#10;2. FC Breitenbach …"></textarea>
+          <div class="h" style="margin-top:8px"><span class="small muted" id="tPasteInfo"></span><button class="btn hot sm" type="button" id="tRead">Auslesen</button></div>
+          <div id="tPrev"></div>
+          <div class="h" style="margin-top:16px"><h2>Tabelle bearbeiten</h2><button class="btn sm" type="button" id="tAddRow">+ Team</button></div>
+          <div class="scroll"><table id="tEdit"></table></div>
+          <div class="h" style="margin-top:8px"><span class="status" id="tMsg" role="status"></span><button class="btn hot sm" type="button" id="tSave">Tabelle speichern</button></div>
+          <div class="h" style="margin-top:22px"><h2>Resultate der Gruppe</h2></div>
+          <p style="margin-top:0">Optional: Pro Spieltag die Resultate der anderen Teams eintragen. Daraus rechnet die App Form und Trend jedes Gegners – und auf Wunsch die ganze Tabelle.</p>
+          <div class="grid"><label for="rDate">Datum<input id="rDate" type="date"></label></div>
+          <div id="rRows"></div>
+          <div class="h" style="margin-top:8px"><button class="btn sm" type="button" id="rAdd">+ Partie</button><button class="btn hot sm" type="button" id="rSave">Resultate speichern</button></div>
+          <p class="status" id="rMsg" role="status"></p>
+          <div class="h" style="margin-top:12px"><span class="small muted" id="rInfo"></span><button class="btn sm" type="button" id="rCalc">Tabelle aus Resultaten berechnen</button></div>
         </div>
         <!-- Import -->
         <div class="panel" data-sp="import" hidden>
@@ -677,7 +696,7 @@ function renderUs(pk, tk){
     </div>
     <div class="two" style="margin-top:12px">
       <div><h3>Wann fallen unsere Tore</h3>${minuteChart(buckets(ms.flatMap(m => (m.goals||[]).map(g => g.min))), buckets(ms.flatMap(m => (m.against||[]).map(g => g.min))), "Unsere Tore", "Gegentore")}</div>
-      <div><h3>Einschätzung</h3>${an ? `<div style="white-space:pre-wrap;line-height:1.5">${esc(an.text)}</div><p class="small muted">Stand ${fmtD(String(an.at).slice(0,10))}</p>` : `<p class="small muted">Noch keine Einschätzung. Lass sie in Claude Code erstellen («Mach unsere eigene Analyse»).</p>`}</div>
+      <div><h3>Einschätzung</h3><div style="white-space:pre-wrap;line-height:1.5">${esc(autoUsText())}</div>${an ? `<details style="margin-top:10px"><summary class="small muted" style="cursor:pointer">Ausführliche KI-Analyse vom ${fmtD(String(an.at).slice(0,10))}</summary><div style="white-space:pre-wrap;line-height:1.5;margin-top:6px">${esc(an.text)}</div></details>` : ""}</div>
     </div>${renderDeep()}`;
 }
 // ---- Vertiefte Analyse (Startseite)
@@ -960,7 +979,7 @@ function renderGames(){
   $("tblInfo").textContent = t && t.updated ? `Stand ${fmtD(t.updated)}` : "";
   $("table").innerHTML = t && t.rows && t.rows.length ? `<table><thead><tr><th>#</th><th class="l">Team</th><th>Sp</th><th>S</th><th>U</th><th>N</th><th>Tore</th><th>Diff</th><th>Pkt</th></tr></thead><tbody>
     ${t.rows.map(r => `<tr class="${isOurs(r.team)?"us":""} ${relCls(r)}"><td>${r.rank}</td><td class="l">${esc(r.team)}</td><td>${r.sp}</td><td>${r.s}</td><td>${r.u}</td><td>${r.n}</td><td>${r.gf}:${r.ga}</td><td>${r.gf-r.ga>0?"+":""}${r.gf-r.ga}</td><td><strong>${r.pts}</strong></td></tr>`).join("")}</tbody></table>`
-    : `<p class="muted">Noch keine Tabelle.${S.admin ? " Lass sie in Claude Code von football.ch importieren." : ""}</p>`;
+    : `<p class="muted">Noch keine Tabelle.${S.admin ? " Unter Admin → Tabelle &amp; Resultate einfügen." : ""}</p>`;
 }
 function matchRow(m){
   const d = new Date(m.date+"T12:00"), pl = played(m);
@@ -1005,8 +1024,9 @@ function renderOpp(){
       ${k.withMinutes < k.n ? `<p class="small muted">Spielminuten aus ${k.withMinutes} von ${k.n} Spielen. Mehr Spielberichte importieren macht das genauer.</p>` : ""}</div>
       <div><h3>Wer trifft?</h3>${k.scorers.length ? `<div class="list">${k.scorers.map(([w,c]) => `<div class="li"><b>${esc(w)}</b><span class="n">${c}</span></div>`).join("")}</div>` : `<p class="small muted">Noch keine Torschützen erfasst.</p>`}
       ${vs.length ? `<h3 style="margin-top:12px">Gegen uns</h3><div class="list">${vs.map(m => `<div class="li"><span class="small muted">${fmtD(m.date)}</span><b>${m.home?"Heim":"Auswärts"}</b><span class="n" style="font-size:16px">${played(m) ? `${m.gf}:${m.ga}` : "geplant"}</span></div>`).join("")}</div>` : ""}</div></div>
-    <h3 style="margin-top:14px">KI-Analyse</h3>
-    <div class="ai ${an ? "" : "empty"}">${an ? esc(an.text) + `\n\n— erstellt ${fmtD(an.at.slice(0,10))}` : `Noch keine Analyse.${S.admin ? " Lass sie in Claude Code erstellen." : ""}`}</div>`;
+    <h3 style="margin-top:14px">Analyse</h3>
+    <div class="ai">${esc(autoOppText(name)) || "Noch zu wenige Daten."}</div>
+    ${an ? `<details style="margin-top:10px"><summary class="small muted" style="cursor:pointer">Ausführliche KI-Analyse vom ${fmtD(an.at.slice(0,10))}</summary><div class="ai" style="margin-top:6px">${esc(an.text)}</div></details>` : ""}`;
 }
 $("oppSel").onchange = renderOpp;
 
@@ -1022,6 +1042,7 @@ function renderSettings(){
   $("sPlCount").textContent = `${ps.length}`;
   $("sPlayers").innerHTML = ps.length ? ps.map(p => `<div class="prow"><span class="face">${face(p)}</span><div class="grow"><b>${p.nr?"#"+p.nr+" ":""}${esc(p.name)}${p.captain?" ©":""}</b><span class="small muted">${esc(POS.find(x=>x[0]===p.pos)?.[1]||p.pos||"–")}${p.year?" · "+p.year:""}${S.notes[p.id]?" · 📝":""}</span></div><button class="btn sm" type="button" data-pe="${esc(p.id)}">Bearbeiten</button></div>`).join("") : `<p class="muted">Noch keine Spieler.</p>`;
   $("sPlayers").querySelectorAll("[data-pe]").forEach(b => b.onclick = () => openPEdit(b.dataset.pe));
+  if (setView === "liga" && !document.activeElement?.closest?.("#tEdit,#rRows")){ tEditRender(); rRender(); }
   const ms = [...S.matches].sort(byDate).reverse();
   $("sMatches").innerHTML = ms.length ? ms.map(m => `<div class="prow"><span class="sc ${played(m)?res(m):"F"}" style="font-size:15px">${played(m)?`${m.gf}:${m.ga}`:"–"}</span><div class="grow"><b>${m.home?"vs.":"@"} ${esc(m.opp)}</b><span class="small muted">${fmtD(m.date)} · ${esc(m.comp||"")}${played(m)?"":" · geplant"}</span></div><button class="btn sm" type="button" data-me="${esc(m.id)}">Bearbeiten</button></div>`).join("") : `<p class="muted">Noch keine Spiele.</p>`;
   $("sMatches").querySelectorAll("[data-me]").forEach(b => b.onclick = () => openMEdit(S.matches.find(m => m.id === b.dataset.me)));
@@ -1174,6 +1195,131 @@ $("trNew").onclick = async () => { const b = $("trNew"); if (!confirmBtn(b)) ret
   const {error} = await sb.from("secrets").upsert({k:"live_token", v:t}); $("trMsg").textContent = error ? "Konnte nicht speichern: supabase/live.sql ausführen." : "Neuer Link erstellt.";
   if (!error) $("trLink").value = location.origin + location.pathname + "#live?t=" + t; };
 $("trCopy").onclick = async () => { if (!$("trLink").value) return; try{ await navigator.clipboard.writeText($("trLink").value); $("trMsg").textContent = "Link kopiert."; }catch(e){ $("trLink").select(); } };
+// ================= Tabelle & Resultate (ohne KI) =================
+function parseTable(txt){
+  const t = String(txt || "").replace(/ /g, " ").replace(/[\t\r\n]+/g, " ").replace(/\s+/g, " ");
+  const re = /(\d{1,2})\.?\s+(\S.+?)\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(?:\(\d+\)\s+)?(\d{1,3})\s*:\s*(\d{1,3})\s+(?:([+\-−–]?\d{1,3})\s+)?(\d{1,3})(?=\s|$)/g;
+  const rows = []; let m;
+  while ((m = re.exec(t))){
+    let rank = +m[1], team = m[2].trim(); const inner = team.match(/^(.*?)\b(\d{1,2})\.\s+(\S.*)$/); if (inner){ rank = +inner[2]; team = inner[3].trim(); }
+    const r = {rank, team, sp:+m[3], s:+m[4], u:+m[5], n:+m[6], gf:+m[7], ga:+m[8], pts:+m[10]};
+    const diff = m[9] != null ? +m[9].replace(/[−–]/, "-") : null, warn = [];
+    if (r.s + r.u + r.n !== r.sp) warn.push("S+U+N ≠ Spiele");
+    if (r.pts !== 3*r.s + r.u) warn.push("Punkte ≠ 3×S+U (Abzug?)");
+    if (diff != null && diff !== r.gf - r.ga) warn.push("Tordifferenz passt nicht");
+    if (warn.length) r.warn = warn.join(", ");
+    rows.push(r);
+  }
+  const seen = new Set(); return rows.filter(r => !seen.has(r.rank) && seen.add(r.rank)).sort((a,b) => a.rank - b.rank);
+}
+let tDraft = null;
+function tEditRender(){
+  if (!tDraft) tDraft = JSON.parse(JSON.stringify(S.table?.rows || []));
+  const F = [["rank","#",3],["team","Team",18],["sp","Sp",3],["s","S",3],["u","U",3],["n","N",3],["gf","T+",3],["ga","T−",3],["pts","Pkt",3]];
+  $("tEdit").innerHTML = `<thead><tr>${F.map(f => `<th>${f[1]}</th>`).join("")}<th></th></tr></thead><tbody>${tDraft.map((r,i) => `<tr${r.warn ? ' style="outline:2px solid var(--loss)" title="' + esc(r.warn) + '"' : ""}>${F.map(([k,,w]) => `<td><input data-i="${i}" data-k="${k}" value="${esc(r[k] ?? "")}" ${k === "team" ? "" : 'inputmode="numeric"'} style="width:${w === 18 ? 11 : 2.6}em;padding:6px 4px;text-align:${k === "team" ? "left" : "center"}"></td>`).join("")}<td><button class="btn sm" type="button" data-del="${i}" aria-label="Zeile löschen">✕</button></td></tr>`).join("")}</tbody>`;
+  $("tEdit").querySelectorAll("input").forEach(inp => inp.oninput = () => { const r = tDraft[+inp.dataset.i]; r[inp.dataset.k] = inp.dataset.k === "team" ? inp.value : (inp.value === "" ? "" : +inp.value); delete r.warn; });
+  $("tEdit").querySelectorAll("[data-del]").forEach(b => b.onclick = () => { tDraft.splice(+b.dataset.del, 1); tEditRender(); });
+}
+$("tRead").onclick = () => { const rows = parseTable($("tPaste").value);
+  if (!rows.length){ $("tPasteInfo").textContent = "Keine Tabelle erkannt. Bitte die ganze Tabelle inkl. Platz, Team und Zahlen kopieren."; $("tPrev").innerHTML = ""; return; }
+  tDraft = rows; tEditRender(); const w = rows.filter(r => r.warn).length;
+  $("tPasteInfo").textContent = `${rows.length} Teams erkannt${w ? ` · ${w} Zeile(n) rot markiert, bitte prüfen` : " · alles plausibel"}. Unten prüfen und speichern.`; };
+$("tAddRow").onclick = () => { if (!tDraft) tEditRender(); tDraft.push({rank:tDraft.length + 1, team:"", sp:0, s:0, u:0, n:0, gf:0, ga:0, pts:0}); tEditRender(); };
+$("tSave").onclick = async () => { const rows = (tDraft || []).filter(r => String(r.team).trim()).map(r => ({rank:+r.rank, team:String(r.team).trim(), sp:+r.sp||0, s:+r.s||0, u:+r.u||0, n:+r.n||0, gf:+r.gf||0, ga:+r.ga||0, pts:+r.pts||0})).sort((a,b) => a.rank - b.rank);
+  try{ await up("team", "table", {rows, updated:new Date().toISOString().slice(0,10)}); tDraft = null; $("tMsg").textContent = `Gespeichert: ${rows.length} Teams.`; $("tPaste").value = ""; $("tPasteInfo").textContent = ""; tEditRender(); }catch(e){ $("tMsg").textContent = errMsg(e); } };
+// Resultate
+const leagueTeams = () => { const set = new Map(); const add = n => { if (n && !set.has(norm(n))) set.set(norm(n), n); };
+  (S.table?.rows||[]).forEach(r => add(r.team)); S.fixtures.forEach(f => { add(f.home); add(f.away); }); S.matches.forEach(m => add(m.opp)); add(S.meta.fbName || S.meta.club);
+  return [...set.values()].sort((a,b) => a.localeCompare(b, "de")); };
+let rDraft = [];
+function rRender(){
+  if (!rDraft.length) rDraft = [{h:"", a:"", hg:"", ag:""}];
+  const opts = sel => `<option value="">– Team –</option>` + leagueTeams().map(t => `<option ${norm(t) === norm(sel) ? "selected" : ""}>${esc(t)}</option>`).join("");
+  $("rRows").innerHTML = rDraft.map((r,i) => `<div class="h" style="gap:6px;margin:6px 0;flex-wrap:nowrap"><select data-i="${i}" data-k="h" style="flex:1;min-width:0">${opts(r.h)}</select><input data-i="${i}" data-k="hg" inputmode="numeric" value="${esc(r.hg)}" style="width:3em;text-align:center" aria-label="Tore Heim"><span>:</span><input data-i="${i}" data-k="ag" inputmode="numeric" value="${esc(r.ag)}" style="width:3em;text-align:center" aria-label="Tore Gast"><select data-i="${i}" data-k="a" style="flex:1;min-width:0">${opts(r.a)}</select></div>`).join("");
+  $("rRows").querySelectorAll("select,input").forEach(el => el.oninput = el.onchange = () => { rDraft[+el.dataset.i][el.dataset.k] = el.value; });
+  const played = S.fixtures.filter(f => f.hg != null && f.hg !== "").length;
+  $("rInfo").textContent = `${played} Resultate anderer Teams gespeichert`;
+}
+$("rAdd").onclick = () => { rDraft.push({h:"", a:"", hg:"", ag:""}); rRender(); };
+$("rSave").onclick = async () => {
+  const date = $("rDate").value; if (!date){ $("rMsg").textContent = "Bitte ein Datum wählen."; return; }
+  const ok = rDraft.filter(r => r.h && r.a && r.hg !== "" && r.ag !== "" && norm(r.h) !== norm(r.a));
+  const ours = ok.filter(r => isOurs(r.h) || isOurs(r.a));
+  const docs = ok.filter(r => !isOurs(r.h) && !isOurs(r.a)).map(r => { const ex = S.fixtures.find(f => f.date === date && norm(f.home) === norm(r.h) && norm(f.away) === norm(r.a));
+    return {coll:"fixtures", id: ex ? ex.id : slug(`${date}-${r.h}-${r.a}`), data:{...(ex ? (({id, ...x}) => x)(ex) : {}), date, home:r.h, away:r.a, hg:+r.hg, ag:+r.ag, comp: ex?.comp || "Meisterschaft"}}; });
+  if (!docs.length){ $("rMsg").textContent = ours.length ? "Eigene Spiele bitte über «Live erfassen» oder Spiele → Bearbeiten eintragen." : "Keine vollständige Partie (Heim, Gast, beide Tore)."; return; }
+  const {error} = await sb.from("docs").upsert(docs); if (error){ $("rMsg").textContent = errMsg(error); return; }
+  rDraft = []; $("rMsg").textContent = `${docs.length} Resultat(e) gespeichert.${ours.length ? " Eigene Spiele wurden übersprungen." : ""}`; await loadAll(); rRender(); };
+function tableFromResults(){
+  const T = new Map(), row = n => { const k = norm(n); if (!T.has(k)) T.set(k, {team:n, sp:0, s:0, u:0, n:0, gf:0, ga:0, pts:0}); return T.get(k); };
+  const game = (h, a, hg, ag) => { const H = row(h), A = row(a); H.sp++; A.sp++; H.gf += hg; H.ga += ag; A.gf += ag; A.ga += hg;
+    if (hg > ag){ H.s++; A.n++; H.pts += 3; } else if (hg < ag){ A.s++; H.n++; A.pts += 3; } else { H.u++; A.u++; H.pts++; A.pts++; } };
+  (S.table?.rows||[]).forEach(r => row(r.team));
+  S.fixtures.filter(f => f.hg != null && f.hg !== "").forEach(f => game(f.home, f.away, +f.hg, +f.ag));
+  const us = S.meta.fbName || S.meta.club; S.matches.filter(m => played(m) && official(m)).forEach(m => m.home ? game(us, m.opp, +m.gf, +m.ga) : game(m.opp, us, +m.ga, +m.gf));
+  return [...T.values()].sort((a,b) => b.pts - a.pts || (b.gf-b.ga) - (a.gf-a.ga) || b.gf - a.gf || a.team.localeCompare(b.team)).map((r,i) => ({rank:i+1, ...r}));
+}
+$("rCalc").onclick = () => { tDraft = tableFromResults(); tEditRender(); const sp = tDraft.map(r => r.sp), mn = Math.min(...sp), mx = Math.max(...sp);
+  $("tMsg").textContent = `Berechnet aus ${S.fixtures.filter(f => f.hg != null && f.hg !== "").length + S.matches.filter(played).length} Spielen${mn !== mx ? ` · Achtung: Teams haben ${mn}–${mx} Spiele, es fehlen Resultate` : ""}. Prüfen und «Tabelle speichern».`; };
+
+// ================= Automatische Analyse-Texte (ohne KI) =================
+function trendWord(a, b){ if (a == null || b == null) return null; return a - b > .3 ? "steigend" : a - b < -.3 ? "fallend" : "stabil"; }
+function autoUsText(){
+  const ms = S.matches.filter(m => played(m) && official(m)).sort(byDate); if (!ms.length) return "";
+  const P = m => ptsOf(m), l5 = ms.slice(-5), bf = ms.slice(0, -5), pp = a => a.length ? a.reduce((s,m) => s + P(m), 0) / a.length : null;
+  const rows = S.table?.rows || [], us = rows.find(r => isOurs(r.team)), N = rows.length, rel = +(S.meta.relegation||0), out = [];
+  const S_ = ms.filter(m => res(m) === "S").length, U_ = ms.filter(m => res(m) === "U").length, gf = ms.reduce((s,m) => s + +m.gf, 0), ga = ms.reduce((s,m) => s + +m.ga, 0);
+  const tw = trendWord(pp(l5), pp(bf));
+  out.push(`FORM & TREND\n${us ? `Platz ${us.rank} mit ${us.pts} Punkten aus ${us.sp} Spielen. ` : ""}${S_} Siege, ${U_} Remis, ${ms.length - S_ - U_} Niederlagen, ${gf}:${ga} Tore. Letzte 5 Spiele: ${pp(l5).toFixed(2)} Punkte pro Spiel${bf.length ? `, vorher ${pp(bf).toFixed(2)} – Trend ${tw}` : ""}.${us && rel && N ? (us.rank > N - rel ? ` Rückstand auf den Strich (Platz ${N - rel}): ${(rows.find(r => r.rank === N - rel)?.pts ?? us.pts) - us.pts} Punkte.` : ` Vorsprung auf den Strich: ${us.pts - (rows.find(r => r.rank === N - rel + 1)?.pts ?? us.pts)} Punkte.`) : ""}`);
+  const gfB = buckets(ms.flatMap(m => (m.goals||[]).map(g => g.min))), gaB = buckets(ms.flatMap(m => (m.against||[]).map(g => g.min)));
+  const mx = a => a.indexOf(Math.max(...a)), first = gaB[0] + gaB[1], late = gfB[5];
+  out.push(`WANN FALLEN UNSERE TORE\nDie meisten eigenen Tore in den Minuten ${BL[mx(gfB)]} (${gfB[mx(gfB)]}), die meisten Gegentore in den Minuten ${BL[mx(gaB)]} (${gaB[mx(gaB)]}).${first >= gaB.reduce((s,v)=>s+v,0) * .35 ? ` Schwacher Start: ${first} Gegentore bis zur 30. Minute.` : ""}${late >= gfB.reduce((s,v)=>s+v,0) * .3 ? ` Starke Schlussphase: ${late} Tore ab der 76. Minute.` : ""}`);
+  const pk = playerKPI().filter(p => p.g > 0).sort((a,b) => b.g - a.g), tot = pk.reduce((s,p) => s + p.g, 0);
+  if (pk.length) out.push(`WER TRIFFT\n${pk.slice(0,3).map(p => `${p.name} ${p.g}`).join(", ")}.${pk[0].g / tot >= .4 ? ` ${sn(pk[0])} erzielt ${Math.round(pk[0].g/tot*100)} % der Tore – die Abhängigkeit ist gross.` : ""}`);
+  const H = ms.filter(m => m.home), A = ms.filter(m => !m.home), hp = pp(H), ap = pp(A);
+  out.push(`HEIM/AUSWÄRTS\nZuhause ${H.reduce((s,m)=>s+P(m),0)} Punkte aus ${H.length} Spielen (${hp != null ? hp.toFixed(2) : "–"} pro Spiel), auswärts ${A.reduce((s,m)=>s+P(m),0)} aus ${A.length} (${ap != null ? ap.toFixed(2) : "–"}).${hp != null && ap != null && Math.abs(hp - ap) > .4 ? (hp > ap ? " Klar heimstärker." : " Klar auswärtsstärker.") : ""}`);
+  const d = deepUs(), weak = [];
+  if (ga / ms.length >= 2) weak.push(`${(ga/ms.length).toFixed(1)} Gegentore pro Spiel`);
+  if (d.full && d.st.firstAg.n / d.full >= .6) weak.push(`in ${d.st.firstAg.n} von ${d.full} Spielen trifft der Gegner zuerst`);
+  if (d.st.leadLost >= 3) weak.push(`${d.st.leadLost} Punkte nach Führung verspielt`);
+  const close = ms.filter(m => +m.ga - +m.gf === 1).length; if (close >= 3) weak.push(`${close} Niederlagen mit einem Tor Unterschied`);
+  out.push(`SCHWACHSTELLEN\n${weak.length ? weak.map(w => w[0].toUpperCase() + w.slice(1)).join(". ") + "." : "Keine auffälligen Schwachstellen in den Zahlen."}`);
+  const tips = [];
+  if (first >= gaB.reduce((s,v)=>s+v,0) * .35) tips.push("Die ersten 30 Minuten kompakt spielen und die Startphase im Training gezielt üben.");
+  if (d.full && d.st.firstAg.n / d.full >= .6) tips.push("Das erste Tor ist der Schlüssel: Wir laufen fast immer einem Rückstand hinterher.");
+  if (ga / ms.length >= 2) tips.push("Defensiv stabilisieren: Abstände in der Kette, Zweikämpfe im Zentrum.");
+  if (pk.length && pk[0].g / tot >= .4) tips.push("Eine zweite Torquelle aufbauen, z. B. über Standards und Abschlüsse aus dem Mittelfeld.");
+  if (late >= gfB.reduce((s,v)=>s+v,0) * .3) tips.push("Die Schlussphase nutzen: spät wechseln, Druck hochhalten.");
+  out.push(`3 TIPPS FÜR UNS\n${tips.slice(0,3).map((t,i) => `${i+1}. ${t}`).join("\n") || "1. Weiter so – die Zahlen zeigen keine klare Baustelle."}`);
+  return out.join("\n\n");
+}
+function autoOppText(name){
+  const k = oppStats(name); if (!k.n) return "";
+  const row = (S.table?.rows||[]).find(r => norm(r.team) === norm(name)), out = [], tw = trendWord(k.ppgLast, k.ppgBefore);
+  out.push(`FORM & TREND\n${row ? `Platz ${row.rank}, ${row.pts} Punkte. ` : ""}${k.S}-${k.U}-${k.N} aus ${k.n} erfassten Spielen, ${k.gf}:${k.ga} Tore. Form: ${k.form.join("-") || "–"}${tw ? `, Trend ${tw}` : ""}.`);
+  const tot = a => a.reduce((s,v) => s + v, 0), mx = a => a.indexOf(Math.max(...a));
+  if (tot(k.forB) + tot(k.agB)) out.push(`WANN FALLEN IHRE TORE\nEigene Tore am häufigsten in den Minuten ${BL[mx(k.forB)]} (${k.forB[mx(k.forB)]}), Gegentore in den Minuten ${BL[mx(k.agB)]} (${k.agB[mx(k.agB)]}).`);
+  if (k.scorers.length) out.push(`WER TRIFFT\n${k.scorers.slice(0,3).map(([w,c]) => `${w} ${c}`).join(", ")}.`);
+  const hp = k.home.n ? k.home.pts / k.home.n : null, ap = k.away.n ? k.away.pts / k.away.n : null;
+  out.push(`HEIM/AUSWÄRTS\nZuhause ${hp != null ? hp.toFixed(2) : "–"}, auswärts ${ap != null ? ap.toFixed(2) : "–"} Punkte pro Spiel.`);
+  const weak = []; if (k.ga / k.n >= 2) weak.push(`${(k.ga/k.n).toFixed(1)} Gegentore pro Spiel`); if (ap != null && hp != null && ap < hp - .5) weak.push("auswärts deutlich schwächer");
+  if (tot(k.agB) && k.agB[5] / tot(k.agB) >= .3) weak.push("kassieren viel in der Schlussphase"); if (tot(k.agB) && (k.agB[0] + k.agB[1]) / tot(k.agB) >= .4) weak.push("anfällig in der Startphase");
+  if (tw === "fallend") weak.push("aktuell im Formtief");
+  out.push(`SCHWACHSTELLEN\n${weak.length ? weak.map(w => w[0].toUpperCase() + w.slice(1)).join(". ") + "." : "Keine klaren Schwachstellen in den Zahlen."}`);
+  const tips = [];
+  if (tot(k.agB) && (k.agB[0] + k.agB[1]) / tot(k.agB) >= .4) tips.push("Früh Druck machen – sie kassieren oft in der Startphase.");
+  if (tot(k.agB) && k.agB[5] / tot(k.agB) >= .3) tips.push("Bis zum Schluss dranbleiben – hinten raus werden sie anfällig.");
+  if (k.scorers.length && k.scorers[0][1] / Math.max(1, k.gf) >= .3) tips.push(`${k.scorers[0][0]} eng decken – er trifft am meisten.`);
+  if (tot(k.forB) && k.forB[mx(k.forB)] / tot(k.forB) >= .3) tips.push(`Besonders wach in den Minuten ${BL[mx(k.forB)]} – dann treffen sie am häufigsten.`);
+  const nx = S.matches.filter(m => !played(m) && norm(m.opp) === norm(name)).sort(byDate)[0];
+  if (nx && !nx.home && hp != null && hp >= 1.8) tips.push("Bei ihnen zuhause kompakt stehen – dort holen sie viele Punkte.");
+  if (nx && nx.home && ap != null && hp != null && ap < hp - .5) tips.push("Im Heimspiel mutig auftreten – auswärts sind sie klar schwächer.");
+  if (tw === "fallend") tips.push("Sie stecken im Formtief: früh Druck machen und ihr Selbstvertrauen angreifen.");
+  if (k.ga / k.n >= 2) tips.push("Torchancen sind da – sie kassieren viel, also mutig abschliessen.");
+  out.push(`3 TIPPS FÜR UNS\n${tips.slice(0,3).map((t,i) => `${i+1}. ${t}`).join("\n") || "1. Eigenes Spiel durchziehen – die Zahlen zeigen keine klare Schwäche."}`);
+  if (k.n < 4) out.push("Hinweis: Wenige erfasste Spiele, Aussagen mit Vorsicht.");
+  return out.join("\n\n");
+}
 // ================= Live-Modus =================
 var trLoaded = false, liveShown = false, L = null, liveTok = null, liveTokOk = false, liveSaveT = null, liveTick = null;
 (() => { const m = location.hash.match(/[?&]t=([\w-]+)/); try{ if (m) localStorage.setItem("liveTok", m[1]); liveTok = localStorage.getItem("liveTok"); }catch(e){ liveTok = m ? m[1] : null; } })();
