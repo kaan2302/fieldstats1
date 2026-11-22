@@ -665,13 +665,14 @@ function deepUs(){
     const ppg = a => a.length ? a.reduce((s,m) => s + ptsOf(m), 0) / a.length : null, gapg = a => a.length ? a.reduce((s,m) => s + m.ga, 0) / a.length : null;
     return {p:pl, n:on.length, m:off.length, on:ppg(on), off:ppg(off), gaOn:gapg(on), gaOff:gapg(off)};
   }).filter(x => x.n >= 3 && x.m >= 3).map(x => ({...x, d:x.on - x.off})).sort((a,b) => b.d - a.d || a.gaOn - b.gaOn);
-  const pairs = [];
-  const starters = S.players.filter(pl => withXi.filter(m => m.stats[pl.id]?.start).length >= 4);
-  for (let i = 0; i < starters.length; i++) for (let j = i+1; j < starters.length; j++){
-    const a = starters[i], b = starters[j], g = withXi.filter(m => m.stats[a.id]?.start && m.stats[b.id]?.start);
-    if (g.length >= 4) pairs.push({a, b, n:g.length, ppg:g.reduce((s,m)=>s+ptsOf(m),0)/g.length, ga:g.reduce((s,m)=>s+m.ga,0)/g.length});
-  }
-  pairs.sort((x,y) => y.ppg - x.ppg || x.ga - y.ga);
+  // Duos: Abwehr nach Gegentoren, Offensive nach eigenen Toren (gemeinsam in der Startelf, ab 3 Spielen)
+  const duo = (filter, key, dir) => { const ps = S.players.filter(pl => filter(pl.pos) && withXi.filter(m => m.stats[pl.id]?.start).length >= 3), out = [];
+    for (let i = 0; i < ps.length; i++) for (let j = i+1; j < ps.length; j++){
+      const g = withXi.filter(m => m.stats[ps[i].id]?.start && m.stats[ps[j].id]?.start);
+      if (g.length >= 3) out.push({a:ps[i], b:ps[j], n:g.length, v:g.reduce((s,m) => s + m[key], 0) / g.length});
+    }
+    return out.sort((x,y) => dir * (x.v - y.v) || y.n - x.n).slice(0,2); };
+  const defDuo = duo(pos => LINE[pos] === "ABW", "ga", 1), offDuo = duo(pos => LINE[pos] === "ANG" || pos === "OM", "gf", -1);
   // 4: Wechsel
   const subG = [], subA = []; let noSub = 0;
   withXi.forEach(m => { if (!Object.values(m.stats).some(x => x.sub)) noSub++;
@@ -683,7 +684,7 @@ function deepUs(){
       .concat(S.matches.filter(m => !played(m) && norm(m.opp) === norm(n)).map(() => S.meta.fbName || S.meta.club));
   const bottom = rows.slice(-5).map(r => { const g = games(r.team), str = g.map(ppgT).filter(v => v != null);
     const left = g.length; return {r, left, str: str.length ? str.reduce((s,v)=>s+v,0)/str.length : null, proj: r.sp ? Math.round(r.pts + r.pts / r.sp * left) : r.pts}; });
-  return {full:full.length, all:ms.length, st, imp, pairs:pairs.slice(0,3), subG, subA, noSub, withXi:withXi.length, bottom};
+  return {full:full.length, all:ms.length, st, imp, defDuo, offDuo, subG, subA, noSub, withXi:withXi.length, bottom};
 }
 function relGap(){ const rows = S.table?.rows || [], N = rows.length, a = +(S.meta.relegation||0), b = +(S.meta.relegationMaybe||a), us = rows.find(r => isOurs(r.team));
   if (!N || !a || !us) return "";
@@ -704,12 +705,13 @@ function renderDeep(){
       <div class="li"><b>Wir treffen zuerst</b><span class="small muted">${st.first.n} Spiele</span><span class="n">${st.first.n ? (st.first.pts/st.first.n).toFixed(2) : "–"}<small class="muted" style="font:700 11px var(--body)"> Pkt/Sp.</small></span></div>
       <div class="li"><b>Gegner trifft zuerst</b><span class="small muted">${st.firstAg.n} Spiele</span><span class="n">${st.firstAg.n ? (st.firstAg.pts/st.firstAg.n).toFixed(2) : "–"}<small class="muted" style="font:700 11px var(--body)"> Pkt/Sp.</small></span></div>
     </div></div>
-    <div><h3>Wer macht den Unterschied</h3>${d.imp.length ? `<div class="list">${d.imp.slice(0,5).map(x => `<div class="li"><span class="face">${face(x.p)}</span><div><b>${esc(x.p.name)}</b><div class="small muted">mit ${f2(x.on)} · ohne ${f2(x.off)} Pkt/Spiel</div></div><span class="n" style="font-size:15px;color:var(--${x.d>=0?"win":"loss"})">${x.d>=0?"+":""}${x.d.toFixed(2)}</span></div><div class="div" style="margin:-2px 10px 4px" title="Unterschied Punkte pro Spiel"><i style="${x.d>=0?`left:50%;width:${Math.min(50,x.d/maxD*50)}%`:`right:50%;width:${Math.min(50,-x.d/maxD*50)}%`};background:var(--${x.d>=0?"win":"loss"})"></i></div>`).join("")}</div>` : `<p class="small muted">Zu wenig Spiele mit Startelf.</p>`}
-      ${d.pairs.length ? `<h3 style="margin-top:10px">Beste Duos in der Startelf</h3><div class="list">${d.pairs.map(x => `<div class="li"><b>${esc(sn(x.a))} + ${esc(sn(x.b))}</b><span class="small muted">${x.n} Sp. · ${x.ga.toFixed(1)} Gegentore</span><span class="n">${x.ppg.toFixed(2)}</span></div>`).join("")}</div>` : ""}
+    <div><h3>Wer macht den Unterschied <span style="text-transform:none;letter-spacing:0">· Pkt/Spiel mit ihm minus ohne ihn</span></h3>${d.imp.length ? `<div class="list">${d.imp.slice(0,5).map(x => `<div class="li"><span class="face">${face(x.p)}</span><div><b>${esc(x.p.name)}</b><div class="small muted">mit ${f2(x.on)} · ohne ${f2(x.off)} Pkt/Spiel</div></div><span class="n" style="font-size:15px;color:var(--${x.d>=0?"win":"loss"})">${x.d>=0?"+":""}${x.d.toFixed(2)}</span></div><div class="div" style="margin:-2px 10px 4px" title="Unterschied Punkte pro Spiel"><i style="${x.d>=0?`left:50%;width:${Math.min(50,x.d/maxD*50)}%`:`right:50%;width:${Math.min(50,-x.d/maxD*50)}%`};background:var(--${x.d>=0?"win":"loss"})"></i></div>`).join("")}</div>` : `<p class="small muted">Zu wenig Spiele mit Startelf.</p>`}
+      ${d.defDuo.length ? `<h3 style="margin-top:10px">Bestes Abwehr-Duo <span style="text-transform:none;letter-spacing:0">· Gegentore/Spiel</span></h3><div class="list">${d.defDuo.map(x => `<div class="li"><b>${esc(sn(x.a))} + ${esc(sn(x.b))}</b><span class="small muted">${x.n} Spiele</span><span class="n">${x.v.toFixed(1)}</span></div>`).join("")}</div>` : ""}
+      ${d.offDuo.length ? `<h3 style="margin-top:10px">Bestes Offensiv-Duo <span style="text-transform:none;letter-spacing:0">· Tore/Spiel</span></h3><div class="list">${d.offDuo.map(x => `<div class="li"><b>${esc(sn(x.a))} + ${esc(sn(x.b))}</b><span class="small muted">${x.n} Spiele</span><span class="n">${x.v.toFixed(1)}</span></div>`).join("")}</div>` : ""}
       </div>
   </div>
   <div class="two" style="margin-top:14px">
-    <div><h3>Joker</h3><div class="list"><div class="li"><b>Tore von Eingewechselten</b><span class="n">${d.subG.length}</span></div>
+    <div><h3>Joker · Impact von der Bank</h3><div class="list"><div class="li"><b>Tore von Eingewechselten</b><span class="n">${d.subG.length}</span></div>
       <div class="li"><b>Vorlagen von Eingewechselten</b><span class="n">${d.subA.length}</span></div></div>
       ${d.noSub ? `<p class="small muted" style="margin-top:6px">${d.noSub} Spiele ohne erfasste Wechsel</p>` : ""}</div>
     <div><h3>Restprogramm &amp; Ligaerhalt</h3>${d.bottom.length ? `<div class="scroll"><table><thead><tr><th class="l">Team</th><th>Pkt</th><th>Übrig</th><th>Gegnerstärke</th><th>Prognose</th></tr></thead><tbody>${d.bottom.map(x => `<tr class="${isOurs(x.r.team)?"us":""} ${relCls(x.r)}"><td class="l">${x.r.rank}. ${esc(x.r.team)}</td><td><strong>${x.r.pts}</strong></td><td>${x.left}</td><td>${f2(x.str)}</td><td>${x.proj}</td></tr>`).join("")}</tbody></table></div>
@@ -719,9 +721,14 @@ function renderDeep(){
 }
 function formChart(ms){
   if (!ms.length) return "";
-  const W = 320, H = 70, n = ms.length, bw = W / n, ht = {S:54, U:30, N:12};
-  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Resultate der Saison: ${ms.map(res).join(", ")}">${ms.map((m,i) => { const r = res(m), h = ht[r];
-    return `<rect data-tip="${esc(`${m.home?"vs.":"@"} ${m.opp} ${m.gf}:${m.ga}`)}" x="${i*bw}" y="0" width="${bw}" height="${H}" fill="transparent"/><rect pointer-events="none" x="${i*bw+2}" y="${H-h-4}" width="${bw-4}" height="${h}" rx="3" fill="var(--${r==="S"?"win":r==="U"?"draw":"loss"})"/>`; }).join("")}</svg>`;
+  const W = 320, H = 80, pt = 10, pb = 10, n = ms.length, X = i => n === 1 ? W/2 : 10 + (W-20) * i / (n-1), Y = v => pt + (H-pt-pb) * (1 - v/3);
+  const roll = ms.map((m,i) => { const w = ms.slice(Math.max(0,i-2), i+1); return w.reduce((s,x) => s + ptsOf(x), 0) / w.length; });
+  const line = roll.map((v,i) => `${X(i)},${Y(v)}`).join(" ");
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Formkurve, Punkte pro Spiel im Schnitt der letzten 3 Spiele">
+    ${[0,1,3].map(v => `<line x1="0" x2="${W}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)" stroke-dasharray="${v===1?"3 4":""}"/>`).join("")}
+    <polygon points="${X(0)},${Y(0)} ${line} ${X(n-1)},${Y(0)}" fill="rgba(255,90,54,.15)"/>
+    <polyline points="${line}" fill="none" stroke="var(--hot)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+    ${ms.map((m,i) => { const r = res(m); return `<circle data-tip="${esc(`${m.home?"vs.":"@"} ${m.opp} ${m.gf}:${m.ga}`)}" cx="${X(i)}" cy="${Y(roll[i])}" r="5" fill="var(--${r==="S"?"win":r==="U"?"draw":"loss"})" stroke="#080c18" stroke-width="2"/>`; }).join("")}</svg>`;
 }
 function relBars(){
   const rows = (S.table?.rows || []).slice(-6); if (!rows.length) return "";
