@@ -39,6 +39,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 .crest img{width:100%;height:100%;object-fit:cover}
 .top h1{font:800 24px/1.05 var(--display);letter-spacing:.5px;margin:0;text-transform:uppercase;text-wrap:balance}
 .top .sub{color:var(--muted);font-size:13px;font-weight:600}
+.seasonsel{width:auto;display:inline-block;padding:3px 26px 3px 8px;font:800 12px var(--display);border-radius:8px;margin-left:4px;background-position:right 6px center}
+.pastbar{background:rgba(255,200,80,.12);border:1px solid rgba(255,200,80,.35);border-radius:12px;padding:8px 12px;margin:0 0 10px;font-weight:700;font-size:13px}
 .rank{margin-left:auto;display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px 14px}
 .rank .n{font:800 32px/1 var(--display);color:var(--gold)}
 .rank .l{font-size:11px;color:var(--muted);font-weight:800;letter-spacing:1px;text-transform:uppercase;line-height:1.2}
@@ -266,9 +268,10 @@ dialog::backdrop{background:rgba(3,6,14,.75);backdrop-filter:blur(3px)}
 <div class="wrap">
   <div class="top">
     <div class="crest" id="crest" aria-hidden="true">SC</div>
-    <div><h1 id="title">Mannschaft</h1><div class="sub" id="subtitle">Saison –</div></div>
+    <div><h1 id="title">Mannschaft</h1><div class="sub"><span id="subtitle"></span> <select id="seasonSel" class="seasonsel" aria-label="Saison wählen"></select></div></div>
     <div class="rank" id="rankBox" hidden><span class="n" id="rankN">–</span><span class="l">Platz<br>Tabelle</span></div>
   </div>
+  <div class="pastbar" id="pastBar" hidden></div>
   <button type="button" class="nextbar" id="nextBar" hidden></button>
   <div class="recbar" id="recbar"></div>
   <div class="banner" id="bErr" hidden><span id="bErrT">Daten konnten nicht geladen werden.</span></div>
@@ -544,15 +547,29 @@ const COLLS = ["players","matches","fixtures","analyses","live"];
 async function loadAll(){
   const {data, error} = await sb.from("docs").select("coll,id,data");
   if (error) throw error;
-  const next = {players:[], matches:[], fixtures:[], analyses:[], live:[], meta:{}, table:null, notes:{}};
+  const next = {players:[], matches:[], fixtures:[], analyses:[], live:[], meta:{}, table:null, tables:{}, notes:{}};
   for (const r of data){
     if (COLLS.includes(r.coll)) next[r.coll].push({id:r.id, ...r.data});
     else if (r.coll === "team" && r.id === "meta") next.meta = r.data || {};
     else if (r.coll === "team" && r.id === "table") next.table = r.data;
+    else if (r.coll === "team" && r.id.startsWith("table-")) next.tables[r.id.slice(6).replace("-", "/")] = r.data;
     else if (r.coll === "ownernotes") next.notes[r.id] = (r.data||{}).note || "";
   }
-  Object.assign(S, next); $("bErr").hidden = true; $("loading").textContent = ""; render();
+  S.all = {matches:next.matches, fixtures:next.fixtures, table:next.table, tables:next.tables};
+  Object.assign(S, next); applySeason(); $("bErr").hidden = true; $("loading").textContent = ""; render();
 }
+// ---- Saisons (1. Juli bis 30. Juni)
+const seasonOf = d => { const [y, m] = String(d || "").split("-").map(Number); if (!y) return null; const a = m >= 7 ? y : y - 1; return `${a}/${String(a + 1).slice(2)}`; };
+const curSeason = () => S.meta.season || seasonOf(new Date().toISOString().slice(0,10));
+function seasonsList(){ const set = new Set([curSeason()]); (S.all?.matches||[]).forEach(m => set.add(seasonOf(m.date))); (S.all?.fixtures||[]).forEach(f => set.add(seasonOf(f.date))); Object.keys(S.all?.tables||{}).forEach(k => set.add(k)); set.delete(null); return [...set].sort().reverse(); }
+function applySeason(){
+  if (!S.season || !seasonsList().includes(S.season)) S.season = curSeason();
+  const cur = S.season === curSeason();
+  S.matches = S.all.matches.filter(m => seasonOf(m.date) === S.season || (cur && !m.date));
+  S.fixtures = S.all.fixtures.filter(f => seasonOf(f.date) === S.season);
+  S.table = cur ? (S.all.table || S.all.tables[S.season] || null) : (S.all.tables[S.season] || null);
+}
+$("seasonSel").onchange = () => { S.season = $("seasonSel").value; applySeason(); render(); };
 let reloadT = null; const reloadSoon = () => { clearTimeout(reloadT); reloadT = setTimeout(() => loadAll().catch(showErr), 300); };
 function showErr(e){ $("bErr").hidden = false; $("bErrT").textContent = "Daten konnten nicht geladen werden. Bitte Seite neu laden."; $("loading").textContent = ""; console.error(e); }
 async function up(coll, id, data){ const {error} = await sb.from("docs").upsert({coll, id, data}); if (error) throw error; await loadAll(); }
@@ -653,7 +670,9 @@ const nextMatch = () => S.matches.filter(m => !played(m) && m.date >= new Date()
 function render(){
   const meta = S.meta || {};
   $("title").textContent = meta.club || "Mannschaft";
-  $("subtitle").textContent = [meta.team, meta.league, meta.season && "Saison " + meta.season].filter(Boolean).join(" · ") || "Saison –";
+  $("subtitle").textContent = [meta.team, meta.league].filter(Boolean).join(" · ") + " · Saison";
+  const ss = seasonsList(); $("seasonSel").innerHTML = ss.map(x => `<option ${x === S.season ? "selected" : ""}>${x}</option>`).join("");
+  $("pastBar").hidden = S.season === curSeason(); $("pastBar").textContent = `Du siehst die vergangene Saison ${S.season}.`;
   $("crest").innerHTML = meta.logo ? `<img src="${esc(meta.logo)}" alt="">` : esc(initials(meta.club || "SC"));
   $("navSet").hidden = !S.admin; $("openLogin").hidden = S.admin; $("footClub").textContent = meta.club || "";
   $("bDemo").hidden = !S.admin || ![...S.players, ...S.matches, ...S.fixtures].some(x => x.demo) && !(S.table && S.table.demo);
@@ -827,7 +846,7 @@ function renderStart(pk, tk){
   const rows = S.table?.rows || [], N = rows.length, a = +(S.meta.relegation||0), safe = rows.find(r => r.rank === N - a);
   const gap = row && safe ? (row.rank <= N - a ? `+${row.pts - (rows.find(r => r.rank === N - a + 1)?.pts ?? row.pts)}` : `–${safe.pts - row.pts}`) : "–";
   const kpi = (v,l,s) => `<div class="kpi"><div class="v" style="font-size:26px">${v}</div><div class="l">${l}</div>${s?`<div class="s">${s}</div>`:""}</div>`;
-  $("stInfo").textContent = S.meta.season ? "Saison " + S.meta.season : "";
+  $("stInfo").textContent = "Saison " + S.season;
   if (!ms.length){ $("startBody").innerHTML = `<p class="muted">Erscheint nach dem ersten gespielten Spiel.</p>`; return; }
   $("startBody").innerHTML = `<div class="kpis">
       ${kpi(row ? row.rank + "." : "–", "Tabellenplatz", row ? `${row.pts} Punkte aus ${row.sp} Spielen` : "")}
@@ -836,9 +855,9 @@ function renderStart(pk, tk){
     </div>
     <div class="two" style="margin-top:12px">
       <div><h3>Formkurve</h3>${formChart(ms)}</div>
-      <div><h3>Abstiegskampf</h3>${relBars()}</div>
+      ${relBars() ? `<div><h3>Abstiegskampf</h3>${relBars()}</div>` : ""}
     </div>
-    <h3 style="margin-top:14px">Das Wichtigste</h3>
+    ${insights(pk).length ? `<h3 style="margin-top:14px">Das Wichtigste</h3>` : ""}
     <div class="list">${insights(pk).map((t,i) => `<div class="insight"><span class="i">${i+1}</span><span>${esc(t)}</span></div>`).join("")}</div>`;
 }
 function renderNextBar(){
@@ -1293,7 +1312,9 @@ $("tRead").onclick = () => { const rows = parseTable($("tPaste").value);
   $("tPasteInfo").textContent = `${rows.length} Teams erkannt${w ? ` · ${w} Zeile(n) rot markiert, bitte prüfen` : " · alles plausibel"}. Unten prüfen und speichern.`; };
 $("tAddRow").onclick = () => { if (!tDraft) tEditRender(); tDraft.push({rank:tDraft.length + 1, team:"", sp:0, s:0, u:0, n:0, gf:0, ga:0, pts:0}); tEditRender(); };
 $("tSave").onclick = async () => { const rows = (tDraft || []).filter(r => String(r.team).trim()).map(r => ({rank:+r.rank, team:String(r.team).trim(), sp:+r.sp||0, s:+r.s||0, u:+r.u||0, n:+r.n||0, gf:+r.gf||0, ga:+r.ga||0, pts:+r.pts||0})).sort((a,b) => a.rank - b.rank);
-  try{ await up("team", "table", {rows, updated:new Date().toISOString().slice(0,10)}); tDraft = null; $("tMsg").textContent = `Gespeichert: ${rows.length} Teams.`; $("tPaste").value = ""; $("tPasteInfo").textContent = ""; tEditRender(); }catch(e){ $("tMsg").textContent = errMsg(e); } };
+  const tdoc = {rows, updated:new Date().toISOString().slice(0,10), season:S.season};
+  try{ if (S.season === curSeason()) await sb.from("docs").upsert({coll:"team", id:"table", data:tdoc});
+    await up("team", "table-" + S.season.replace("/", "-"), tdoc); tDraft = null; $("tMsg").textContent = `Gespeichert: ${rows.length} Teams.`; $("tPaste").value = ""; $("tPasteInfo").textContent = ""; tEditRender(); }catch(e){ $("tMsg").textContent = errMsg(e); } };
 // Resultate
 const leagueTeams = () => { const set = new Map(); const add = n => { if (n && !set.has(norm(n))) set.set(norm(n), n); };
   (S.table?.rows||[]).forEach(r => add(r.team)); S.fixtures.forEach(f => { add(f.home); add(f.away); }); S.matches.forEach(m => add(m.opp)); add(S.meta.fbName || S.meta.club);
