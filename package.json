@@ -1,0 +1,37 @@
+{
+  "name": "fieldstats",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "description": "Kader, Statistik und Live-Erfassung für Amateur-Fussballteams",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write src tests index.html \"*.{ts,js,json}\"",
+    "format:check": "prettier --check src tests index.html \"*.{ts,js,json}\"",
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm test",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.119.2",
+    "jspdf": "^2.5.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.65.1",
+    "eslint": "^10.15.0",
+    "jsdom": "^31.0.1",
+    "prettier": "^3.10.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.73.0",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.1"
+  }
+}

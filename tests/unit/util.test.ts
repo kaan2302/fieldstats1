@@ -1,0 +1,22 @@
+import { describe, expect, it } from "vitest";
+import { minKey, minNum, norm, slug, sn } from "../../src/util";
+
+describe("util", () => {
+  it("slug folgt der Regel aus CLAUDE.md", () => {
+    expect(slug("2026-11-07-FC Reinach-FC Aesch")).toBe("2026-11-07-fc-reinach-fc-aesch");
+    expect(slug("FC Münchenstein")).toBe("fc-munchenstein");
+  });
+  it("norm ignoriert Gross/Klein und Umlaut-Punkte", () => {
+    expect(norm("SC Binningen")).toBe(norm("sc binningen"));
+    expect(norm("Möhlin")).toBe(norm("Mohlin"));
+  });
+  it("Nachspielzeit wird richtig gelesen und sortiert", () => {
+    expect(minNum("90+2")).toBe(90);
+    expect(minNum("23")).toBe(23);
+    expect(minKey("45+2")).toBeLessThan(minKey("46"));
+    expect(minKey("90+4")).toBeGreaterThan(minKey("90+2"));
+  });
+  it("Kurzname im Stil «Remo H.»", () => {
+    expect(sn({ id: "x", name: "Remo Huber" })).toBe("Remo H.");
+  });
+});

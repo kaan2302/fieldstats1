@@ -1,6 +1,12 @@
 # SCB Kader-App – Anleitung für Claude
 
-Live-Seite: https://kaan2302.github.io/fieldstats1/ (eine Datei: `index.html`, Daten in Supabase).
+Live-Seite: https://kaan2302.github.io/fieldstats1/ (TypeScript + Vite in `src/`, Daten in Supabase, Aufbau siehe `README.md`).
+
+## Code ändern
+- Nach jeder Änderung `npm run check` (Typen, Lint, Format, Tests) und bei Oberflächen-Änderungen `npm run test:e2e`.
+- Rechenlogik gehört nach `src/domain/` bzw. `src/live/model.ts` und bekommt einen Test in `tests/unit/`.
+- Datenbank-Änderungen als neue Datei `supabase/migrations/00X_….sql`, nie alte Dateien ändern.
+- Veröffentlicht wird automatisch per GitHub Actions beim Push auf `main`.
 Admin: Kaa (kaanyildiz1402@gmail.com). Antworte auf Deutsch (Schweizer Rechtschreibung, «ss» statt «ß»).
 
 ## Daten lesen und schreiben
