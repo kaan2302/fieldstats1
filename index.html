@@ -498,7 +498,8 @@ dialog::backdrop{background:rgba(3,6,14,.75);backdrop-filter:blur(3px)}
     <div><div class="h" style="margin:0"><h3>Gegentore</h3><button class="btn sm" type="button" id="addAg">+ Gegentor</button></div><div id="agRows"></div></div>
   </div>
   <h3 style="margin-top:6px">Startelf <small class="muted" id="meXiInfo"></small></h3>
-  <div class="pitch" id="mePitch" style="max-height:460px;max-width:440px;margin:0 auto 10px"><div class="lines"></div><div class="mid"></div><div class="circle"></div><span class="tag" id="meTag">–</span></div>
+  <div class="pitch" id="mePitch" data-zone="xi" style="max-height:460px;max-width:440px;margin:0 auto 10px"><div class="lines"></div><div class="mid"></div><div class="circle"></div><span class="tag" id="meTag">–</span></div>
+  <div style="text-align:center;margin:-4px 0 10px"><button class="btn sm" type="button" id="mePdf">Aufgebot als PDF</button> <span class="small muted">Startelf = aufs Feld, «Eingew.» = Ersatz</span></div>
   <h3 style="margin-top:6px">Aufstellung &amp; Einsatz</h3>
   <div class="scroll"><table id="ftable"></table></div>
   <p class="warn" id="fWarn" role="status"></p>
@@ -511,9 +512,17 @@ const SB_URL = "https://mcdjzcisihabimpvmgzg.supabase.co";
 const SB_KEY = "sb_publishable_J7_VgOZpvgORTbZQG_udNA_EQTeLWnx"; // öffentlicher Schlüssel; Schreiben ist per Datenbankregel nur für den Admin erlaubt
 const ADMIN = "kaanyildiz1402@gmail.com";
 const $ = id => document.getElementById(id);
-const POS = [["TW","Torwart","TOR"],["IV","Innenverteidiger","ABW"],["AV","Aussenverteidiger","ABW"],["DM","Def. Mittelfeld","MIT"],["ZM","Zentrales Mittelfeld","MIT"],["OM","Off. Mittelfeld","MIT"],["FL","Flügel","ANG"],["ST","Sturm","ANG"]];
-const POS_ORDER = Object.fromEntries(POS.map((p,i)=>[p[0],i]));
-const LINE = Object.fromEntries(POS.map(p=>[p[0],p[2]]));
+// Positionen: [Code, Name, Mannschaftsteil, x %, y %] (y: 0 = gegnerisches Tor oben)
+const POS = [["TW","Torhüter","TOR",50,90],
+  ["LAV","Linker Aussenverteidiger","ABW",12,70],["LV","Linker Innenverteidiger","ABW",32,74],["IV","Innenverteidiger","ABW",50,75],["RV","Rechter Innenverteidiger","ABW",68,74],["RAV","Rechter Aussenverteidiger","ABW",88,70],
+  ["ZDM","Defensives Mittelfeld","MIT",50,60],["LM","Linkes Mittelfeld","MIT",12,45],["ZM","Zentrales Mittelfeld","MIT",50,48],["RM","Rechtes Mittelfeld","MIT",88,45],["ZOM","Offensives Mittelfeld","MIT",50,35],
+  ["LF","Linker Flügel","ANG",12,22],["LS","Linker Stürmer","ANG",32,16],["ST","Stürmer","ANG",50,22],["MS","Mittelstürmer","ANG",50,11],["RS","Rechter Stürmer","ANG",68,16],["RF","Rechter Flügel","ANG",88,22]];
+const POS_OLD = [["AV","Aussenverteidiger (alt)","ABW",88,70],["DM","Def. Mittelfeld (alt)","MIT",50,60],["OM","Off. Mittelfeld (alt)","MIT",50,35],["FL","Flügel (alt)","ANG",88,22]];
+const POS_ALL = [...POS, ...POS_OLD];
+const POS_ORDER = Object.fromEntries(POS_ALL.map((p,i)=>[p[0], i < POS.length ? i : POS.findIndex(q => q[2] === p[2]) + .5]));
+const LINE = Object.fromEntries(POS_ALL.map(p=>[p[0],p[2]]));
+const SLOT = Object.fromEntries(POS_ALL.map(p=>[p[0],{x:p[3], y:p[4]}]));
+const nearestPos = (x, y) => POS.reduce((b, p) => { const d = (p[3]-x)**2 + ((p[4]-y)*1.3)**2; return d < b.d ? {d, c:p[0]} : b; }, {d:1e9, c:"ZM"}).c;
 const S = {players:[], matches:[], fixtures:[], analyses:[], live:[], meta:{}, table:null, notes:{}, admin:false};
 let sb = null, sortKey = "g", sortDir = -1, posFilter = "", setView = "verein", editP = null, editM = null, pendingPhoto, pendingLogo, parsed = null;
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -659,20 +668,29 @@ function render(){
 
 // ---- Kader
 function mini(p){ return `<div class="mini ${LINE[p.pos]||"XXX"}"><div class="face">${face(p)}</div><div class="nm">${esc(sn(p))}</div><div class="nr">${p.nr ? "#"+p.nr+" · " : ""}${esc(p.pos||"")}</div></div>`; }
-function drawPitch(pitch, tag, xi, onClick){
+function drawPitch(pitch, tag, xi, onClick, layout){
   pitch.querySelectorAll(".slot,.empty").forEach(e => e.remove());
-  if (!xi.length){ tag.textContent = "–"; pitch.insertAdjacentHTML("beforeend", `<div class="empty">Keine Startelf erfasst. Hake unten die Spieler unter «Startelf» an.</div>`); return; }
-  const lines = {TOR:[], ABW:[], MIT:[], ANG:[], XXX:[]};
-  [...xi].sort((a,b) => (POS_ORDER[a.pos]??99) - (POS_ORDER[b.pos]??99)).forEach(p => lines[LINE[p.pos]||"XXX"].push(p));
-  lines.MIT.push(...lines.XXX);
-  const av = lines.ABW.filter(p => p.pos === "AV"), iv = lines.ABW.filter(p => p.pos !== "AV"); lines.ABW = [...av.slice(0,1), ...iv, ...av.slice(1)];
-  const fl = lines.ANG.filter(p => p.pos === "FL"), st = lines.ANG.filter(p => p.pos !== "FL"); lines.ANG = [...fl.slice(0,1), ...st, ...fl.slice(1)];
-  tag.textContent = [lines.ABW.length, lines.MIT.length, lines.ANG.length].filter(Boolean).join("-") || "–";
-  [["ANG",18],["MIT",44],["ABW",68],["TOR",88]].forEach(([l, y]) => { const row = lines[l], n = row.length;
-    row.forEach((p, i) => { const b = document.createElement("button"); b.type = "button"; b.className = "slot";
-      b.style.left = (n === 1 ? 50 : 12 + 76 * i / (n - 1)) + "%"; b.style.top = y + "%";
-      b.setAttribute("aria-label", `${p.name}, ${p.pos}`); b.innerHTML = mini(p); b.dataset.p = p.id; if (onClick) b.onclick = () => onClick(p.id); pitch.appendChild(b); }); });
+  if (!xi.length){ tag.textContent = "–"; pitch.insertAdjacentHTML("beforeend", `<div class="empty">Keine Startelf erfasst.</div>`); return; }
+  const placed = placeXi(xi, layout);
+  const cnt = l => placed.filter(q => LINE[q.pos] === l).length;
+  tag.textContent = [cnt("ABW"), cnt("MIT"), cnt("ANG")].filter(Boolean).join("-") || "–";
+  placed.forEach(q => { const b = document.createElement("button"); b.type = "button"; b.className = "slot";
+    b.style.left = q.x + "%"; b.style.top = q.y + "%";
+    b.setAttribute("aria-label", `${q.p.name}, ${q.pos}`); b.innerHTML = mini({...q.p, pos:q.pos}); b.dataset.p = q.p.id; b.dataset.pos = q.pos;
+    if (onClick) b.onclick = () => onClick(q.p.id); pitch.appendChild(b); });
 }
+function placeXi(xi, layout){
+  layout = layout || {};
+  const placed = xi.map(p => { const l = layout[p.id]; if (l && l.x != null) return {p, x:l.x, y:l.y, pos:l.pos || nearestPos(l.x, l.y)}; const sl = SLOT[p.pos] || {x:50, y:48}; return {p, x:sl.x, y:sl.y, pos:p.pos || "ZM", auto:true}; });
+  // automatisch platzierte Spieler mit gleicher Position nebeneinander schieben
+  const groups = {}; placed.filter(q => q.auto).forEach(q => (groups[q.x+"|"+q.y] = groups[q.x+"|"+q.y] || []).push(q));
+  Object.values(groups).forEach(g => { if (g.length < 2) return;
+    if (g.length === 2 && g[0].x !== 50){ g[1].x = 100 - g[0].x; return; }
+    g.forEach((q,i) => { q.x = Math.max(10, Math.min(90, q.x + (i - (g.length-1)/2) * 24)); }); });
+  return placed;
+}
+// Spieler auf dem Feld frei verschieben (bleibt, wo man ihn ablegt)
+function pitchPct(pitch, cx, cy){ const r = pitch.getBoundingClientRect(); return {x:Math.round(Math.max(6, Math.min(94, (cx - r.left) / r.width * 100))), y:Math.round(Math.max(6, Math.min(94, (cy - r.top) / r.height * 100)))}; }
 function renderUs(pk, tk){
   const ms = S.matches.filter(m => played(m) && official(m)).sort(byDate);
   if (!ms.length){ $("usInfo").textContent = ""; $("usBody").innerHTML = `<p class="muted">Erscheint nach dem ersten gespielten Spiel.</p>`; return; }
@@ -730,7 +748,7 @@ function deepUs(){
       if (g.length >= 3) out.push({a:ps[i], b:ps[j], n:g.length, v:g.reduce((s,m) => s + m[key], 0) / g.length});
     }
     return out.sort((x,y) => dir * (x.v - y.v) || y.n - x.n).slice(0,2); };
-  const defDuo = duo(pos => LINE[pos] === "ABW", "ga", 1), offDuo = duo(pos => LINE[pos] === "ANG" || pos === "OM", "gf", -1);
+  const defDuo = duo(pos => LINE[pos] === "ABW", "ga", 1), offDuo = duo(pos => LINE[pos] === "ANG" || pos === "OM" || pos === "ZOM", "gf", -1);
   // 4: Wechsel
   const subG = [], subA = []; let noSub = 0;
   withXi.forEach(m => { if (!Object.values(m.stats).some(x => x.sub)) noSub++;
@@ -1040,7 +1058,7 @@ function renderSettings(){
   $("logoPrev").innerHTML = (pendingLogo !== undefined ? pendingLogo : meta.logo) ? `<img src="${esc(pendingLogo !== undefined ? pendingLogo : meta.logo)}" alt="">` : esc(initials(meta.club || "SC"));
   const ps = [...S.players].sort((a,b) => (POS_ORDER[a.pos]??99)-(POS_ORDER[b.pos]??99) || (a.nr||99)-(b.nr||99));
   $("sPlCount").textContent = `${ps.length}`;
-  $("sPlayers").innerHTML = ps.length ? ps.map(p => `<div class="prow"><span class="face">${face(p)}</span><div class="grow"><b>${p.nr?"#"+p.nr+" ":""}${esc(p.name)}${p.captain?" ©":""}</b><span class="small muted">${esc(POS.find(x=>x[0]===p.pos)?.[1]||p.pos||"–")}${p.year?" · "+p.year:""}${S.notes[p.id]?" · 📝":""}</span></div><button class="btn sm" type="button" data-pe="${esc(p.id)}">Bearbeiten</button></div>`).join("") : `<p class="muted">Noch keine Spieler.</p>`;
+  $("sPlayers").innerHTML = ps.length ? ps.map(p => `<div class="prow"><span class="face">${face(p)}</span><div class="grow"><b>${p.nr?"#"+p.nr+" ":""}${esc(p.name)}${p.captain?" ©":""}</b><span class="small muted">${esc(POS_ALL.find(x=>x[0]===p.pos)?.[1]||p.pos||"–")}${p.year?" · "+p.year:""}${S.notes[p.id]?" · 📝":""}</span></div><button class="btn sm" type="button" data-pe="${esc(p.id)}">Bearbeiten</button></div>`).join("") : `<p class="muted">Noch keine Spieler.</p>`;
   $("sPlayers").querySelectorAll("[data-pe]").forEach(b => b.onclick = () => openPEdit(b.dataset.pe));
   if (setView === "liga" && !document.activeElement?.closest?.("#tEdit,#rRows")){ tEditRender(); rRender(); }
   const ms = [...S.matches].sort(byDate).reverse();
@@ -1059,7 +1077,7 @@ $("saveMeta").onclick = async () => {
 };
 
 // ---- player edit
-$("pePos").innerHTML = POS.map(([k,l]) => `<option value="${k}">${l} (${k})</option>`).join("");
+$("pePos").innerHTML = POS_ALL.map(([k,l]) => `<option value="${k}">${l} (${k})</option>`).join("");
 function previewP(){ const p = {name:$("peName").value || "Name", nr:$("peNr").value || "–", pos:$("pePos").value, captain:$("peCap").checked, photo: pendingPhoto !== undefined ? pendingPhoto : (editP && pById(editP)?.photo)};
   const k = playerKPI().find(x => x.id === editP) || {}; const el = $("pePrev"); el.className = "pc " + (LINE[p.pos]||"XXX");
   el.innerHTML = card({...p, apps:k.apps, g:k.g, a:k.a}).replace(/^<button[^>]*>|<\/button>$/g, ""); }
@@ -1112,12 +1130,18 @@ function openMEdit(m){
       <td><input class="w" type="number" min="0" max="2" inputmode="numeric" aria-label="Gelbe Karten" value="${s.y ?? ""}"></td><td><input class="w" type="number" min="0" max="1" inputmode="numeric" aria-label="Rote Karte" value="${s.r ?? ""}"></td></tr>`; }).join("") || `<tr><td colspan="6" class="muted">Zuerst Spieler anlegen.</td></tr>`}</tbody>`;
   $("ftable").querySelectorAll("tbody tr[data-p]").forEach(tr => { const [st, sb, mi] = tr.querySelectorAll("input");
     st.onchange = () => { if (st.checked){ sb.checked = false; if (!mi.value) mi.value = 90; } meXi(); }; sb.onchange = () => { if (sb.checked) st.checked = false; meXi(); }; });
+  meLayout = JSON.parse(JSON.stringify((m && m.lineup) || {}));
   $("meXiInfo").textContent = m && played(m) ? `${fmtD(m.date)} ${m.home ? "vs." : "@"} ${m.opp} · ${m.gf}:${m.ga}` : "";
   meXi();
   $("medit").showModal();
 }
+let meLayout = {};
 function meXi(){ const ids = [...$("ftable").querySelectorAll("tbody tr[data-p]")].filter(tr => tr.querySelector("input").checked).map(tr => tr.dataset.p);
-  drawPitch($("mePitch"), $("meTag"), S.players.filter(p => ids.includes(p.id)), null); }
+  drawPitch($("mePitch"), $("meTag"), S.players.filter(p => ids.includes(p.id)), null, meLayout);
+  $("mePitch").querySelectorAll(".slot").forEach(el => dragify(el, () => {}, (id, zone, cx, cy) => { if (zone !== "xi") return; const q = pitchPct($("mePitch"), cx, cy); meLayout[id] = {...q, pos:nearestPos(q.x, q.y)}; meXi(); })); }
+$("mePdf").onclick = () => { const rows = [...$("ftable").querySelectorAll("tbody tr[data-p]")], xi = rows.filter(tr => tr.querySelectorAll("input")[0].checked).map(tr => tr.dataset.p), bench = rows.filter(tr => tr.querySelectorAll("input")[1].checked).map(tr => tr.dataset.p);
+  if (!xi.length){ $("fWarn").textContent = "Zuerst die Startelf anhaken."; return; }
+  aufgebotSheet({opp:$("fOpp").value.trim() || "Gegner", home:$("fHome").value === "1", date:$("fDate").value, time:$("fTime").value, xi, bench, layout:meLayout}); };
 $("addMatch").onclick = () => openMEdit(null);
 $("meForm").onsubmit = async e => {
   e.preventDefault();
@@ -1131,7 +1155,7 @@ $("meForm").onsubmit = async e => {
     if (goals.length > gf || against.length > ga){ $("fWarn").textContent = `Erfasste Tore (${goals.length}:${against.length}) passen nicht zum Resultat ${gf}:${ga}.`; return; } }
   if (!$("fOpp").value.trim()){ $("fWarn").textContent = "Bitte den Gegner eintragen."; return; }
   const old = editM ? S.matches.find(m => m.id === editM) : null;
-  const m = {...(old||{}), id: editM || uid(), date:$("fDate").value, time:$("fTime").value, opp:$("fOpp").value.trim(), home:$("fHome").value === "1", comp:$("fComp").value, status, gf, ga, goals, against, stats};
+  const m = {...(old||{}), id: editM || uid(), date:$("fDate").value, time:$("fTime").value, opp:$("fOpp").value.trim(), home:$("fHome").value === "1", comp:$("fComp").value, status, gf, ga, goals, against, stats, lineup:Object.fromEntries(Object.entries(meLayout).filter(([id]) => stats[id]?.start))};
   $("fSave").disabled = true;
   try{ await put("matches", m); $("medit").close(); }catch(err){ $("fWarn").textContent = errMsg(err); } finally{ $("fSave").disabled = false; }
 };
@@ -1195,6 +1219,49 @@ $("trNew").onclick = async () => { const b = $("trNew"); if (!confirmBtn(b)) ret
   const {error} = await sb.from("secrets").upsert({k:"live_token", v:t}); $("trMsg").textContent = error ? "Konnte nicht speichern: supabase/live.sql ausführen." : "Neuer Link erstellt.";
   if (!error) $("trLink").value = location.origin + location.pathname + "#live?t=" + t; };
 $("trCopy").onclick = async () => { if (!$("trLink").value) return; try{ await navigator.clipboard.writeText($("trLink").value); $("trMsg").textContent = "Link kopiert."; }catch(e){ $("trLink").select(); } };
+// ================= Aufgebot als PDF =================
+function loadJsPDF(){ return window.jspdf ? Promise.resolve() : new Promise((ok, no) => { const sc = document.createElement("script"); sc.src = "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"; sc.onload = ok; sc.onerror = () => no(new Error("PDF-Werkzeug konnte nicht geladen werden.")); document.head.appendChild(sc); }); }
+function aufgebotSheet(info){
+  sheet("Aufgebot als PDF", `<div class="grid"><label for="agMeet">Besammlung<input id="agMeet" placeholder="z. B. 15:45"></label><label for="agPlace">Treffpunkt<input id="agPlace" placeholder="z. B. Garderobe Spiegelfeld"></label></div>
+    <label for="agNote" style="margin-top:8px">Bemerkung<input id="agNote" placeholder="z. B. Schienbeinschoner, schwarzes Dress"></label>
+    <div class="h" style="margin-top:12px"><span class="status" id="agMsg"></span><button class="btn hot" type="button" id="agGo">PDF erstellen</button></div>`,
+    b => { $("agGo").onclick = async () => { $("agGo").disabled = true; $("agMsg").textContent = "Wird erstellt …";
+      try{ await aufgebotPDF({...info, meet:$("agMeet").value.trim(), place:$("agPlace").value.trim(), note:$("agNote").value.trim()}); closeSheet(); }catch(e){ $("agMsg").textContent = e.message; } finally{ $("agGo").disabled = false; } }; });
+}
+async function aufgebotPDF(o){
+  await loadJsPDF(); const {jsPDF} = window.jspdf, doc = new jsPDF({unit:"mm", format:"a4"});
+  const W = 210, club = S.meta.club || "Team", team = S.meta.team ? " · " + S.meta.team : "";
+  doc.setFillColor(8,12,24); doc.rect(0, 0, W, 34, "F");
+  let tx = 14; if (S.meta.logo){ try{ doc.addImage(S.meta.logo, S.meta.logo.includes("png") ? "PNG" : "JPEG", 12, 6, 22, 22); tx = 40; }catch(e){} }
+  doc.setTextColor(255,255,255); doc.setFont("helvetica","bold"); doc.setFontSize(20); doc.text("AUFGEBOT", tx, 16);
+  doc.setFontSize(11); doc.setFont("helvetica","normal"); doc.text(club + team, tx, 24);
+  doc.setTextColor(20,20,20); doc.setFont("helvetica","bold"); doc.setFontSize(16);
+  doc.text(`${o.home ? club + " – " + o.opp : o.opp + " – " + club}`, 14, 46);
+  doc.setFont("helvetica","normal"); doc.setFontSize(11);
+  const d = new Date(o.date + "T12:00").toLocaleDateString("de-CH", {weekday:"long", day:"numeric", month:"long", year:"numeric"});
+  const lines = [`${d}${o.time ? ", Anpfiff " + o.time : ""} · ${o.home ? "Heimspiel" : "Auswärtsspiel"}`];
+  if (o.meet || o.place) lines.push(`Besammlung: ${[o.meet, o.place].filter(Boolean).join(", ")}`);
+  if (o.note) lines.push(o.note);
+  lines.forEach((t, i) => doc.text(t, 14, 54 + i * 6));
+  // Spielfeld
+  const px = 14, py = 54 + lines.length * 6 + 4, pw = 118, ph = 168;
+  doc.setFillColor(46,125,70); doc.rect(px, py, pw, ph, "F");
+  doc.setDrawColor(255,255,255); doc.setLineWidth(.5); doc.rect(px+3, py+3, pw-6, ph-6); doc.line(px+3, py+ph/2, px+pw-3, py+ph/2); doc.circle(px+pw/2, py+ph/2, 14);
+  doc.rect(px+pw/2-26, py+3, 52, 22); doc.rect(px+pw/2-26, py+ph-25, 52, 22);
+  const xi = S.players.filter(p => o.xi.includes(p.id)), placed = placeXi(xi, o.layout);
+  placed.forEach(q => { const cx = px + q.x/100*pw, cy = py + q.y/100*ph;
+    doc.setFillColor(255,255,255); doc.circle(cx, cy - 3, 5, "F"); doc.setTextColor(20,20,20); doc.setFont("helvetica","bold"); doc.setFontSize(9);
+    doc.text(String(q.p.nr || ""), cx, cy - 1.8, {align:"center"});
+    doc.setTextColor(255,255,255); doc.setFontSize(8.5); doc.text(sn(q.p), cx, cy + 6, {align:"center"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.text(q.pos, cx, cy + 9.5, {align:"center"}); });
+  // Listen rechts
+  let y = py + 4; const rx = 140; doc.setTextColor(20,20,20);
+  const block = (title, ps) => { doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text(title, rx, y); y += 6; doc.setFont("helvetica","normal"); doc.setFontSize(10);
+    ps.forEach(p => { doc.text(`${p.nr ? String(p.nr).padStart(2," ") + "  " : ""}${p.name}`, rx, y); y += 5.2; }); y += 4; };
+  block("Startelf", placed.map(q => q.p)); block("Ersatz", S.players.filter(p => (o.bench||[]).includes(p.id)));
+  doc.setFontSize(8); doc.setTextColor(120,120,120); doc.text(`Erstellt ${new Date().toLocaleDateString("de-CH")}`, 14, 290);
+  doc.save(`Aufgebot ${o.date} ${o.opp}.pdf`.replace(/[\\/:*?"<>|]/g, "-"));
+}
 // ================= Tabelle & Resultate (ohne KI) =================
 function parseTable(txt){
   const t = String(txt || "").replace(/ /g, " ").replace(/[\t\r\n]+/g, " ").replace(/\s+/g, " ");
@@ -1364,7 +1431,7 @@ function liveOpen(){
 }
 function liveStart(m){
   const last = S.matches.filter(x => played(x) && x.stats && Object.values(x.stats).some(s => s.start)).sort(byDate).pop();
-  L = {...m, phase:"setup", xi:[], bench:[], events:[], updated:Date.now(), lastXi: last ? S.players.filter(p => last.stats[p.id]?.start).map(p => p.id) : []};
+  L = {...m, phase:"setup", xi:[], bench:[], events:[], updated:Date.now(), lastXi: last ? S.players.filter(p => last.stats[p.id]?.start).map(p => p.id) : [], lastLayout: last?.lineup || {}, xiPos:{}};
   liveRender();
 }
 function liveRender(){
@@ -1384,7 +1451,8 @@ function liveRender(){
       <h3 style="margin-top:10px">Bank <span style="text-transform:none;letter-spacing:0">· antippen zum Einwechseln</span></h3><div class="zone" id="lvBench">${bench.map(chip).join("") || `<span class="small muted">Niemand mehr auf der Bank</span>`}</div></div>
     <div><h3>Ereignisse</h3><div class="list" id="lvEvents">${evList()}</div>
       <div class="h" style="margin-top:14px"><button class="btn sm danger" type="button" id="lvCancel">Erfassung verwerfen</button>${phaseBtn ? `<button class="btn hot" type="button" id="lvPhase">${phaseBtn[0]}</button>` : ""}</div></div></div>`;
-  drawPitch($("lvPitch"), $("lvTag"), field, id => playerSheet(id));
+  const lay = {...(L.xiPos||{})}; [...L.events].filter(e => e.t === "sub").sort((a,b) => minKey(a.min) - minKey(b.min)).forEach(e => { const o = lay[e.out] || (SLOT[pById(e.out)?.pos] ? {...SLOT[pById(e.out).pos], pos:pById(e.out).pos} : null); if (o) lay[e.inn] = o; });
+  drawPitch($("lvPitch"), $("lvTag"), field, id => playerSheet(id), lay);
   $("lvBench").querySelectorAll(".chip-p").forEach(c => c.onclick = () => subSheet(null, c.dataset.p));
   box.querySelectorAll("[data-a]").forEach(b => b.onclick = () => ({goal:goalSheet, ag:agSheet, sub:() => subSheet(), card:() => cardSheet()})[b.dataset.a]());
   box.querySelectorAll("[data-del]").forEach(b => b.onclick = () => { L.events = L.events.filter(e => e.id !== b.dataset.del); L.updated = Date.now(); liveSave(); liveRender(); });
@@ -1405,22 +1473,25 @@ function evList(){
 // --- Aufstellung mit Ziehen oder Antippen
 function liveSetup(box, head){
   const inXi = new Set(L.xi), inB = new Set(L.bench), rest = S.players.filter(p => !inXi.has(p.id) && !inB.has(p.id)).sort((a,b) => (POS_ORDER[a.pos]??99) - (POS_ORDER[b.pos]??99));
-  box.innerHTML = head + `<p class="small muted">Spieler in die Startelf (Spielfeld) oder auf die Bank ziehen – oder antippen: Kader → Startelf → Bank → Kader.</p>
+  box.innerHTML = head + `<p class="small muted">Spieler aufs Feld ziehen – sie bleiben, wo du sie ablegst, die Position passt sich an. Oder antippen: Kader → Startelf → Bank → Kader.</p>
     <div class="two"><div><h3>Startelf <span id="lvXiN" style="text-transform:none">${L.xi.length}/11</span></h3><div class="pitch" id="lvPitch" data-zone="xi" style="max-height:440px"><div class="lines"></div><div class="mid"></div><div class="circle"></div><span class="tag" id="lvTag">–</span></div>
       ${L.lastXi?.length && !L.xi.length ? `<button class="btn sm" type="button" id="lvLast" style="margin-top:8px">Startelf vom letzten Spiel übernehmen</button>` : ""}</div>
     <div><h3>Bank</h3><div class="zone" data-zone="bench" id="lvB">${S.players.filter(p => inB.has(p.id)).map(chip).join("")}</div>
       <h3 style="margin-top:10px">Kader</h3><div class="zone" data-zone="rest" id="lvR">${rest.map(chip).join("")}</div></div></div>
     <p class="warn" id="lvWarn"></p>
-    <div class="h" style="margin-top:10px"><button class="btn sm" type="button" id="lvPost">Nachträglich erfassen (ohne Uhr)</button><button class="btn hot" type="button" id="lvKick">Anpfiff ▶</button></div>`;
-  drawPitch($("lvPitch"), $("lvTag"), S.players.filter(p => inXi.has(p.id)), null);
-  const move = (id, zone) => { L.xi = L.xi.filter(x => x !== id); L.bench = L.bench.filter(x => x !== id);
-    if (zone === "xi"){ if (L.xi.length >= 11){ L.bench.push(id); } else L.xi.push(id); } else if (zone === "bench") L.bench.push(id);
+    <div class="h" style="margin-top:10px"><button class="btn sm" type="button" id="lvPdf">Aufgebot als PDF</button><button class="btn sm" type="button" id="lvPost">Nachträglich erfassen (ohne Uhr)</button><button class="btn hot" type="button" id="lvKick">Anpfiff ▶</button></div>`;
+  L.xiPos = L.xiPos || {};
+  drawPitch($("lvPitch"), $("lvTag"), S.players.filter(p => inXi.has(p.id)), null, L.xiPos);
+  const move = (id, zone, cx, cy) => { const wasXi = L.xi.includes(id); L.xi = L.xi.filter(x => x !== id); L.bench = L.bench.filter(x => x !== id);
+    if (zone === "xi"){ if (!wasXi && L.xi.length >= 11){ L.bench.push(id); delete L.xiPos[id]; } else { L.xi.push(id); if (cx != null){ const q = pitchPct($("lvPitch"), cx, cy); L.xiPos[id] = {...q, pos:nearestPos(q.x, q.y)}; } } }
+    else { delete L.xiPos[id]; if (zone === "bench") L.bench.push(id); }
     L.updated = Date.now(); liveRender(); };
   const cycle = id => move(id, L.xi.includes(id) ? "bench" : L.bench.includes(id) ? "rest" : (L.xi.length < 11 ? "xi" : "bench"));
   box.querySelectorAll("[data-p]").forEach(el => dragify(el, cycle, move));
-  const lb = $("lvLast"); if (lb) lb.onclick = () => { L.xi = L.lastXi.filter(id => pById(id)).slice(0,11); L.updated = Date.now(); liveRender(); };
+  const lb = $("lvLast"); if (lb) lb.onclick = () => { L.xi = L.lastXi.filter(id => pById(id)).slice(0,11); L.xiPos = JSON.parse(JSON.stringify(L.lastLayout || {})); L.updated = Date.now(); liveRender(); };
   const go = phase => { if (!L.xi.length){ $("lvWarn").textContent = "Zuerst die Startelf wählen."; return; }
     L.phase = phase; if (phase === "h1") L.t1 = Date.now(); L.updated = Date.now(); liveSave(true); liveRender(); };
+  $("lvPdf").onclick = () => { if (!L.xi.length){ $("lvWarn").textContent = "Zuerst die Startelf wählen."; return; } aufgebotSheet({opp:L.opp, home:L.home, date:L.date, time:L.time, xi:L.xi, bench:L.bench, layout:L.xiPos}); };
   $("lvKick").onclick = () => go("h1"); $("lvPost").onclick = () => go("post");
 }
 function dragify(el, onTap, onDrop){
@@ -1428,11 +1499,11 @@ function dragify(el, onTap, onDrop){
   el.addEventListener("pointerdown", e => {
     e.preventDefault(); const sx = e.clientX, sy = e.clientY; let ghost = null, over = null;
     const zoneAt = (x, y) => { if (ghost) ghost.style.display = "none"; const z = document.elementFromPoint(x, y)?.closest("[data-zone]"); if (ghost) ghost.style.display = ""; return z; };
-    const mv = ev => { if (!ghost && Math.hypot(ev.clientX - sx, ev.clientY - sy) > 8){ ghost = el.cloneNode(true); ghost.classList.add("ghost"); if (ghost.classList.contains("slot")) ghost.style.width = el.offsetWidth + "px"; document.body.appendChild(ghost); }
+    const mv = ev => { if (!ghost && Math.hypot(ev.clientX - sx, ev.clientY - sy) > 8){ ghost = el.cloneNode(true); ghost.classList.add("ghost"); if (ghost.classList.contains("slot")){ ghost.style.width = el.offsetWidth + "px"; ghost.style.position = "fixed"; } (el.closest("dialog") || document.body).appendChild(ghost); }
       if (ghost){ ghost.style.left = ev.clientX + "px"; ghost.style.top = ev.clientY + "px"; const z = zoneAt(ev.clientX, ev.clientY); if (z !== over){ over?.classList.remove("over"); over = z; over?.classList.add("over"); } } };
     const upF = ev => { document.removeEventListener("pointermove", mv); document.removeEventListener("pointerup", upF); document.removeEventListener("pointercancel", upF);
       over?.classList.remove("over");
-      if (ghost){ ghost.remove(); const z = zoneAt(ev.clientX, ev.clientY); if (z) onDrop(el.dataset.p, z.dataset.zone); } else onTap(el.dataset.p); };
+      if (ghost){ ghost.remove(); const z = zoneAt(ev.clientX, ev.clientY); if (z) onDrop(el.dataset.p, z.dataset.zone, ev.clientX, ev.clientY); } else onTap(el.dataset.p); };
     document.addEventListener("pointermove", mv); document.addEventListener("pointerup", upF); document.addEventListener("pointercancel", upF);
   });
 }
@@ -1482,7 +1553,7 @@ async function liveFinish(){
   const goals = ev.filter(e => e.t === "goal").map(e => ({min:e.min, who:e.who || null, ast:e.ast || null, ...(e.og ? {og:true} : {})}));
   const against = ev.filter(e => e.t === "ag").map(e => ({min:e.min, who:e.name || ""}));
   const old = S.matches.find(m => m.id === L.id) || {}, {id:_x, ...oldData} = old;
-  const data = {...oldData, date:L.date, opp:L.opp, home:L.home, comp:L.comp || oldData.comp || "Meisterschaft", time:L.time || oldData.time || "", status:"played", gf:goals.length, ga:against.length, goals, against, stats, live:true};
+  const data = {...oldData, date:L.date, opp:L.opp, home:L.home, comp:L.comp || oldData.comp || "Meisterschaft", time:L.time || oldData.time || "", status:"played", gf:goals.length, ga:against.length, goals, against, stats, lineup:L.xiPos || {}, live:true};
   const {error} = await sb.rpc("live_save", {p_token: liveTok, p_match: L.id, p_live: null, p_match_data: data});
   if (error){ if (S.admin){ await sb.from("docs").upsert({coll:"matches", id:L.id, data}); await sb.from("docs").delete().match({coll:"live", id:L.id}); }
     else { $("lvSync").textContent = "Speichern fehlgeschlagen – nochmals versuchen"; return; } }
