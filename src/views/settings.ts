@@ -1,7 +1,7 @@
 import { legalHtml, legalMissing } from "../legal";
 import { S, ctx, teamUrl } from "../state";
 import { $, $$, errMsg, esc, face, fmtD, initials, norm, num, shrink, slug, uid } from "../util";
-import { LINE, POS_ALL, POS_ORDER } from "../positions";
+import { LINE, POS, POS_ORDER } from "../positions";
 import { byDate, isOurs, leagueTeams, pById, parseTable, played, playerKPI, res, tableFromResults } from "../domain";
 import { openMEdit } from "./match-edit";
 import { dbUpsert, del, loadAll, put, putDoc, saveNote, up } from "../db";
@@ -45,7 +45,7 @@ export function renderSettings() {
     ? ps
         .map(
           p =>
-            `<div class="prow"><span class="face">${face(p)}</span><div class="grow"><b>${p.nr ? "#" + p.nr + " " : ""}${esc(p.name)}${p.captain ? " ©" : ""}</b><span class="small muted">${esc(POS_ALL.find(x => x[0] === p.pos)?.[1] || p.pos || "–")}${p.year ? " · " + p.year : ""}${S.notes[p.id] ? " · 📝" : ""}</span></div><button class="btn sm" type="button" data-pe="${esc(p.id)}">Bearbeiten</button></div>`,
+            `<div class="prow"><span class="face">${face(p)}</span><div class="grow"><b>${p.nr ? "#" + p.nr + " " : ""}${esc(p.name)}${p.captain ? " ©" : ""}</b><span class="small muted">${esc(POS.find(x => x[0] === p.pos)?.[1] || p.pos || "–")}${p.year ? " · " + p.year : ""}${S.notes[p.id] ? " · 📝" : ""}</span></div><button class="btn sm" type="button" data-pe="${esc(p.id)}">Bearbeiten</button></div>`,
         )
         .join("")
     : `<p class="muted">Noch keine Spieler.</p>`;
@@ -256,7 +256,7 @@ export function initSettings() {
       $("metaMsg").textContent = errMsg(e);
     }
   };
-  $("pePos").innerHTML = POS_ALL.map(([k, l]) => `<option value="${k}">${l} (${k})</option>`).join("");
+  $("pePos").innerHTML = POS.map(([k, l]) => `<option value="${k}">${l} (${k})</option>`).join("");
   ["peName", "peNr", "pePos", "peCap"].forEach(id => $(id).addEventListener("input", previewP));
   $("pePhoto").onchange = (e: Event) => {
     const f = (e.target as HTMLInputElement).files?.[0];

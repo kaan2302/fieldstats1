@@ -1,3 +1,4 @@
+import { POS, normPos } from "../../src/positions";
 import { describe, expect, it } from "vitest";
 import { minKey, minNum, norm, slug, sn } from "../../src/util";
 
@@ -18,5 +19,36 @@ describe("util", () => {
   });
   it("Kurzname im Stil «Remo H.»", () => {
     expect(sn({ id: "x", name: "Remo Huber" })).toBe("Remo H.");
+  });
+});
+
+describe("Positionen", () => {
+  it("nur noch die neuen Codes", () => {
+    expect(POS.map(p => p[0])).toEqual([
+      "TW",
+      "LAV",
+      "LV",
+      "IV",
+      "RV",
+      "RAV",
+      "ZDM",
+      "LM",
+      "ZM",
+      "RM",
+      "ZOM",
+      "LF",
+      "LS",
+      "ST",
+      "MS",
+      "RS",
+      "RF",
+    ]);
+    expect(POS.find(p => p[0] === "LV")?.[1]).toBe("Linker Verteidiger");
+    expect(POS.find(p => p[0] === "LAV")?.[1]).toBe("Linker Aussenverteidiger");
+  });
+  it("alte Codes werden umgestellt", () => {
+    expect(normPos("AV")).toBe("RAV");
+    expect(normPos("DM")).toBe("ZDM");
+    expect(normPos("ST")).toBe("ST");
   });
 });

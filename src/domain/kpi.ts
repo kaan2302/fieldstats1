@@ -263,7 +263,7 @@ export function deepUs(): DeepAnalysis {
     return out.sort((x, y) => dir * (x.v - y.v) || y.n - x.n).slice(0, 2);
   };
   const defDuo = duo(pos => LINE[pos] === "ABW", "ga", 1);
-  const offDuo = duo(pos => LINE[pos] === "ANG" || pos === "OM" || pos === "ZOM", "gf", -1);
+  const offDuo = duo(pos => LINE[pos] === "ANG" || pos === "ZOM", "gf", -1);
 
   // Joker: Tore und Vorlagen von Eingewechselten
   const subG: string[] = [],
