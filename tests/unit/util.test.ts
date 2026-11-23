@@ -26,10 +26,12 @@ describe("Positionen", () => {
   it("nur noch die neuen Codes", () => {
     expect(POS.map(p => p[0])).toEqual([
       "TW",
-      "LAV",
       "LV",
+      "LIV",
       "IV",
+      "RIV",
       "RV",
+      "LAV",
       "RAV",
       "ZDM",
       "LM",
@@ -38,13 +40,17 @@ describe("Positionen", () => {
       "ZOM",
       "LF",
       "LS",
-      "ST",
       "MS",
       "RS",
       "RF",
+      "ST",
     ]);
     expect(POS.find(p => p[0] === "LV")?.[1]).toBe("Linker Verteidiger");
     expect(POS.find(p => p[0] === "LAV")?.[1]).toBe("Linker Aussenverteidiger");
+    expect(POS.find(p => p[0] === "LIV")?.[1]).toBe("Linker Innenverteidiger");
+    const y = (c: string) => POS.find(p => p[0] === c)![4];
+    expect(y("ST")).toBeLessThan(y("MS")); // Stürmer ganz vorne, Mittelstürmer dahinter
+    expect(y("LAV")).toBeLessThan(y("LV")); // Aussenverteidiger höher als Verteidiger
   });
   it("alte Codes werden umgestellt", () => {
     expect(normPos("AV")).toBe("RAV");
