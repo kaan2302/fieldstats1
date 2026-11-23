@@ -89,7 +89,7 @@ function renderTiles(pk: PlayerKPI[], tk: TeamKPI, ms: Match[]): string {
   return `<div class="kpis">
       ${kpi(tk.form.map(r => `<span class="dot ${r}">${r}</span>`).join(""), "Form letzte 5", `${pl != null ? pl.toFixed(2) : "–"} Pkt/Spiel · vorher ${pb != null ? pb.toFixed(2) : "–"}`)}
       ${kpi(trend, "Trend", SP(tk.n))}
-      ${kpi(`${pp(tk.home)} / ${pp(tk.away)}`, "Pkt/Spiel Heim / Ausw.", `${tk.home.pts} Pkt Heim · ${tk.away.pts} Pkt Ausw.`)}
+      ${kpi(`${pp(tk.home)} / ${pp(tk.away)}`, "Pkt. pro Spiel<br>Heim / Ausw.", `${tk.home.pts} Pkt Heim · ${tk.away.pts} Pkt Ausw.`)}
       ${kpi(`${(tk.gf / tk.n).toFixed(1)} : ${(tk.ga / tk.n).toFixed(1)}`, "Tore / Gegentore pro Spiel", `${tk.cs} × zu null`)}
       ${kpi(
         top.length ? esc(top[0].name) + " " + top[0].g : "–",
