@@ -1,3 +1,5 @@
+import { KINDS } from "../domain/coach";
+import type { GoalKind } from "../types";
 import { shortName } from "../domain/privacy";
 // Live-Erfassung am Spielfeldrand: Aufstellung ziehen, Tore/Wechsel/Karten antippen, Abpfiff speichern.
 import { dbUpsert, loadAll, sb } from "../db";
@@ -256,9 +258,9 @@ function evList(l: LiveState): string {
   if (!ev.length) return `<p class="small muted">Noch nichts erfasst.</p>`;
   const txt = (e: LiveEvent) =>
     e.t === "goal"
-      ? `⚽ <b>${esc(e.og ? "Eigentor Gegner" : pName(e.who))}</b>${e.ast ? ` <span class="muted small">Vorlage ${esc(short(e.ast))}</span>` : ""}`
+      ? `⚽ <b>${esc(e.og ? "Eigentor Gegner" : pName(e.who))}</b>${e.ast ? ` <span class="muted small">Vorlage ${esc(short(e.ast))}</span>` : ""}${kindTag(e.kind)}`
       : e.t === "ag"
-        ? `🥅 Gegentor${e.name ? " · " + esc(e.name) : ""}`
+        ? `🥅 Gegentor${e.name ? " · " + esc(e.name) : ""}${kindTag(e.kind)}`
         : e.t === "sub"
           ? `🔁 <b>${esc(short(e.inn))}</b> für ${esc(short(e.out))}`
           : `${e.t === "y" ? "🟨" : "🟥"} ${esc(pName(e.who))}`;
@@ -359,6 +361,25 @@ function liveSetup(box: HTMLElement, head: string): void {
 const nowMin = () => (cur().phase === "post" ? "" : liveMin(cur()));
 const minField = (value = nowMin()) =>
   `<label for="lsMin" style="max-width:160px;margin-bottom:10px">Minute<input id="lsMin" inputmode="numeric" value="${esc(value)}" placeholder="z. B. 23 oder 90+2"></label>`;
+/** Torart (optional): ein Klick, nochmals klicken hebt die Auswahl auf. */
+let kindSel: GoalKind | null = null;
+const kindField = () =>
+  `<div class="small muted" style="font-weight:700;margin:0 0 6px">Torart</div><div class="seg" id="lsKind" role="group" aria-label="Torart" style="margin-bottom:12px;flex-wrap:wrap">${KINDS.map(
+    x => `<button type="button" data-kind="${x.k}" aria-pressed="${kindSel === x.k}">${x.label}</button>`,
+  ).join("")}</div>`;
+const bindKind = (body: HTMLElement) =>
+  body.querySelectorAll<HTMLElement>("[data-kind]").forEach(
+    b =>
+      (b.onclick = () => {
+        kindSel = kindSel === b.dataset.kind ? null : (b.dataset.kind as GoalKind);
+        body
+          .querySelectorAll<HTMLElement>("[data-kind]")
+          .forEach(x => x.setAttribute("aria-pressed", String(x.dataset.kind === kindSel)));
+      }),
+  );
+const kindTag = (k?: GoalKind) =>
+  k ? ` <span class="muted small">· ${KINDS.find(x => x.k === k)?.label ?? ""}</span>` : "";
+const withKind = () => (kindSel ? { kind: kindSel } : {});
 const pickList = (ps: Player[], extra = "") =>
   `<div class="pick">${ps.map(p => `<button type="button" data-p="${esc(p.id)}">${esc(sn(p))}<small>${p.nr ? "#" + p.nr + " · " : ""}${esc(p.pos || "")}</small></button>`).join("")}${extra}</div>`;
 const onPick = (body: HTMLElement, fn: (id: string) => void) =>
@@ -384,34 +405,50 @@ function addEv(e: Omit<LiveEvent, "id" | "min">): boolean {
 
 function goalSheet(scorer?: { who: string; min: string }): void {
   const field = onField(cur(), S.players);
-  if (!scorer)
+  if (!scorer) {
+    kindSel = null;
     return sheet(
       "Tor – wer hat getroffen?",
       minField() +
+        kindField() +
         pickList(field, `<button type="button" data-p="og">Eigentor Gegner<small>ohne Torschütze</small></button>`),
-      b =>
+      b => {
+        bindKind(b);
         onPick(b, id =>
-          id === "og" ? void addEv({ t: "goal", who: null, og: true }) : goalSheet({ who: id, min: $("lsMin").value }),
-        ),
+          id === "og"
+            ? void addEv({ t: "goal", who: null, og: true })
+            : kindSel === "penalty"
+              ? void addEv({ t: "goal", who: id, ast: null, kind: "penalty" })
+              : goalSheet({ who: id, min: $("lsMin").value }),
+        );
+      },
     );
+  }
   sheet(
     "Vorlage von?",
     minField(scorer.min) +
+      kindField() +
       pickList(
         field.filter(p => p.id !== scorer.who),
         `<button type="button" data-p="">Keine Vorlage</button>`,
       ),
-    b => onPick(b, id => void addEv({ t: "goal", who: scorer.who, ast: id || null })),
+    b => {
+      bindKind(b);
+      onPick(b, id => void addEv({ t: "goal", who: scorer.who, ast: id || null, ...withKind() }));
+    },
   );
 }
 
 function agSheet(): void {
+  kindSel = null;
   sheet(
     "Gegentor",
     minField() +
+      kindField() +
       `<label for="lsName">Torschütze Gegner (optional)<input id="lsName" placeholder="Vorname N. oder leer lassen"></label><div class="h" style="margin-top:10px"><span></span><button class="btn hot" type="button" id="lsOk">Gegentor speichern</button></div>`,
-    () => {
-      $("lsOk").onclick = () => addEv({ t: "ag", name: shortName($("lsName").value) });
+    b => {
+      bindKind(b);
+      $("lsOk").onclick = () => addEv({ t: "ag", name: shortName($("lsName").value), ...withKind() });
     },
   );
 }

@@ -1,5 +1,7 @@
 import { S } from "../state";
 import {
+  KINDS,
+  goalKinds,
   halfTime,
   load,
   phases,
@@ -133,6 +135,44 @@ function renderDeep(): string {
               .join(" "),
           )}`
         : note("Braucht Spiele mit Torminuten.")
+    }`,
+  );
+
+  // 10) Torarten
+  const gk = goalKinds(ms);
+  const known = (c: typeof gk.ours) => c.standard + c.penalty + c.konter + c.spiel;
+  const cell = (c: typeof gk.ours, k: (typeof KINDS)[number]["k"], color: string) => {
+    const tot = known(c),
+      n = c[k],
+      pct = tot ? Math.round((n / tot) * 100) : 0;
+    return `<td><div style="display:flex;align-items:center;gap:8px;justify-content:flex-end"><span class="small muted">${n ? pct + " %" : ""}</span><strong>${n}</strong><span style="display:inline-block;width:60px;height:6px;border-radius:3px;background:var(--panel2);overflow:hidden"><i style="display:block;height:100%;width:${pct}%;background:var(--${color})"></i></span></div></td>`;
+  };
+  cards.push(
+    `<h3>Torarten ${sub("Standard, Penalty, Konter, aus dem Spiel")}</h3>${
+      known(gk.ours) + known(gk.theirs)
+        ? `<div class="scroll"><table><thead><tr><th class="l">Torart</th><th>Unsere Tore</th><th>Gegentore</th></tr></thead><tbody>${KINDS.map(x => `<tr><td class="l">${x.label}</td>${cell(gk.ours, x.k, "win")}${cell(gk.theirs, x.k, "loss")}</tr>`).join("")}</tbody></table></div>${note(
+            [
+              (() => {
+                const k = known(gk.theirs),
+                  set = gk.theirs.standard + gk.theirs.penalty;
+                return k >= 5 && set / k >= 0.35
+                  ? `${Math.round((set / k) * 100)} % der Gegentore nach Standards oder Penalty – Standards trainieren.`
+                  : "";
+              })(),
+              (() => {
+                const k = known(gk.theirs);
+                return k >= 5 && gk.theirs.konter / k >= 0.3
+                  ? "Viele Gegentore nach Kontern – Absicherung bei eigenem Ballbesitz prüfen."
+                  : "";
+              })(),
+              `Erfasst bei ${known(gk.ours)} von ${gk.ours.total - gk.ours.og} Toren und ${known(gk.theirs)} von ${gk.theirs.total} Gegentoren. Im Live-Modus oder unter «Spiel bearbeiten» nachtragen.`,
+            ]
+              .filter(Boolean)
+              .join(" "),
+          )}`
+        : note(
+            "Noch keine Torarten erfasst. Im Live-Modus beim Tor oder Gegentor die Torart antippen, oder unter «Spiel bearbeiten» nachtragen.",
+          )
     }`,
   );
 

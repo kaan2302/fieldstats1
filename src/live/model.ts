@@ -80,8 +80,16 @@ export function matchFromLive(l: LiveState, old?: Partial<Match>): Omit<Match, "
   }
   const goals: Goal[] = ev
     .filter(e => e.t === "goal")
-    .map(e => ({ min: e.min, who: e.who || null, ast: e.ast || null, ...(e.og ? { og: true } : {}) }));
-  const against: Against[] = ev.filter(e => e.t === "ag").map(e => ({ min: e.min, who: e.name || "" }));
+    .map(e => ({
+      min: e.min,
+      who: e.who || null,
+      ast: e.ast || null,
+      ...(e.og ? { og: true } : {}),
+      ...(e.kind ? { kind: e.kind } : {}),
+    }));
+  const against: Against[] = ev
+    .filter(e => e.t === "ag")
+    .map(e => ({ min: e.min, who: e.name || "", ...(e.kind ? { kind: e.kind } : {}) }));
   const oldData: Partial<Match> = { ...(old || {}) };
   delete oldData.id;
   return {

@@ -1,11 +1,11 @@
+import { KINDS, kindOf } from "../domain/coach";
 import { shortName } from "../domain/privacy";
-import type { LineupSpot } from "../types";
 import { S } from "../state";
 import { $, $$, errMsg, esc, fmtD, num, uid } from "../util";
 import { played } from "../domain";
 import { POS_ORDER, nearestPos } from "../positions";
 import { del, put } from "../db";
-import type { Against, Goal, Match, StatLine } from "../types";
+import type { Against, Goal, GoalKind, LineupSpot, Match, StatLine } from "../types";
 import { dragify, drawPitch, pitchPct } from "../pitch";
 import { aufgebotSheet } from "../pdf";
 
@@ -16,17 +16,21 @@ const plOpts = (sel: string | null | undefined, empty: string) =>
     .sort((a, b) => a.name.localeCompare(b.name))
     .map(p => `<option value="${esc(p.id)}" ${p.id === sel ? "selected" : ""}>${esc(p.name)}</option>`)
     .join("");
+const kindOpts = (sel: GoalKind | null) =>
+  `<option value="">Torart</option>` +
+  KINDS.map(x => `<option value="${x.k}" ${x.k === sel ? "selected" : ""}>${x.label}</option>`).join("");
 function goalRow(g: Partial<Goal> = {}): void {
   const d = document.createElement("div");
   d.className = "goalrow";
-  d.innerHTML = `<input placeholder="Min" aria-label="Minute" value="${esc(g.min ?? "")}"><select aria-label="Torschütze">${plOpts(g.who, "Torschütze")}</select><select aria-label="Vorlage">${plOpts(g.ast, "keine Vorlage")}</select><button class="btn sm" type="button" aria-label="Tor entfernen">×</button>`;
+  d.innerHTML = `<input placeholder="Min" aria-label="Minute" value="${esc(g.min ?? "")}"><select aria-label="Torschütze">${plOpts(g.who, "Torschütze")}</select><select aria-label="Vorlage">${plOpts(g.ast, "keine Vorlage")}</select><select aria-label="Torart">${kindOpts(kindOf(g))}</select><button class="btn sm" type="button" aria-label="Tor entfernen">×</button>`;
+  (d as HTMLElement & { _g?: Partial<Goal> })._g = g; // og und andere Felder beim Speichern behalten
   d.querySelector("button")!.onclick = () => d.remove();
   $("goalRows").appendChild(d);
 }
 function agRow(g: Partial<Against> = {}): void {
   const d = document.createElement("div");
   d.className = "goalrow ag";
-  d.innerHTML = `<input placeholder="Min" aria-label="Minute" value="${esc(g.min ?? "")}"><input placeholder="Torschütze Gegner (optional)" aria-label="Torschütze Gegner" value="${esc(g.who ?? "")}"><button class="btn sm" type="button" aria-label="Gegentor entfernen">×</button>`;
+  d.innerHTML = `<input placeholder="Min" aria-label="Minute" value="${esc(g.min ?? "")}"><input placeholder="Torschütze Gegner (optional)" aria-label="Torschütze Gegner" value="${esc(g.who ?? "")}"><select aria-label="Torart">${kindOpts(kindOf(g))}</select><button class="btn sm" type="button" aria-label="Gegentor entfernen">×</button>`;
   d.querySelector("button")!.onclick = () => d.remove();
   $("agRows").appendChild(d);
 }
@@ -147,14 +151,22 @@ export function initEdit() {
     });
     const goals = [...$("goalRows").children]
       .map(d => {
-        const [mi, w, a] = d.querySelectorAll("input,select");
-        return { min: mi.value.trim(), who: w.value || null, ast: a.value || null };
+        const [mi, w, a, k] = d.querySelectorAll("input,select");
+        const old = (d as HTMLElement & { _g?: Partial<Goal> })._g ?? {};
+        const { pen: _p, fk: _f, kind: _k, ...keep } = old;
+        return {
+          ...keep,
+          min: mi.value.trim(),
+          who: w.value || null,
+          ast: a.value || null,
+          ...(k.value ? { kind: k.value as GoalKind } : {}),
+        };
       })
       .filter(g => g.min || g.who);
     const against = [...$("agRows").children]
       .map(d => {
-        const [mi, w] = d.querySelectorAll("input");
-        return { min: mi.value.trim(), who: shortName(w.value) };
+        const [mi, w, k] = d.querySelectorAll("input,select");
+        return { min: mi.value.trim(), who: shortName(w.value), ...(k.value ? { kind: k.value as GoalKind } : {}) };
       })
       .filter(g => g.min || g.who);
     let gf = num($("fGF").value),

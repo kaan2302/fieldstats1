@@ -56,3 +56,20 @@ describe("Live-Modus", () => {
     expect("id" in m).toBe(false);
   });
 });
+
+describe("Live-Modus: Torart", () => {
+  it("übernimmt die Torart ins Spiel", () => {
+    const m = matchFromLive(
+      base([
+        { id: "1", t: "goal", min: "10", who: "a", ast: null, kind: "penalty" },
+        { id: "2", t: "ag", min: "20", name: "", kind: "konter" },
+        { id: "3", t: "goal", min: "30", who: "b", ast: "a" },
+      ]),
+    );
+    expect(m.goals).toEqual([
+      { min: "10", who: "a", ast: null, kind: "penalty" },
+      { min: "30", who: "b", ast: "a" },
+    ]);
+    expect(m.against).toEqual([{ min: "20", who: "", kind: "konter" }]);
+  });
+});

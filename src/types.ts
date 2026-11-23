@@ -24,8 +24,12 @@ export interface StatLine {
   r: number;
 }
 
+/** Torart: Standard (Ecke, Freistoss, Einwurf), Penalty, Konter, aus dem Spiel. */
+export type GoalKind = "standard" | "penalty" | "konter" | "spiel";
+
 export interface Goal {
   min: string;
+  kind?: GoalKind;
   who: string | null;
   ast?: string | null;
   pen?: boolean;
@@ -36,6 +40,7 @@ export interface Goal {
 export interface Against {
   min: string;
   who: string;
+  kind?: GoalKind;
 }
 
 /** Position eines Spielers auf dem Spielfeld in Prozent (y: 0 = gegnerisches Tor). */
@@ -132,6 +137,7 @@ export interface LiveEvent {
   who?: string | null;
   ast?: string | null;
   og?: boolean;
+  kind?: GoalKind;
   name?: string;
   out?: string;
   inn?: string;

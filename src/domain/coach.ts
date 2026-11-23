@@ -1,6 +1,6 @@
 // Trainer-Analysen aus den erfassten Daten: Halbzeit-Bilanz, gefährliche Phasen, Gegnerstärke,
 // Belastung und Einsatzzeit, Wechsel-Timing. Alles reine Funktionen (getestet in tests/unit/coach.test.ts).
-import type { Match, Player, TableRow } from "../types";
+import type { GoalKind, Match, Player, TableRow } from "../types";
 import { minKey, minNum, norm, num } from "../util";
 import { BL, buckets, ppg, ptsOf, res } from "./matches";
 
@@ -276,5 +276,52 @@ export function subTiming(ms: readonly Match[]): SubTiming {
   o.allAvg = avg(all);
   if (minBefore) o.before.per90 = ((o.before.gf - o.before.ga) / minBefore) * 90;
   if (minAfter) o.after.per90 = ((o.after.gf - o.after.ga) / minAfter) * 90;
+  return o;
+}
+
+// ---------- 10) Torarten ----------
+
+export const KINDS: readonly { k: GoalKind; label: string }[] = [
+  { k: "standard", label: "Standard" },
+  { k: "penalty", label: "Penalty" },
+  { k: "konter", label: "Konter" },
+  { k: "spiel", label: "Aus dem Spiel" },
+];
+
+/** Torart eines Tors; ältere Importe kennen nur «pen» (Penalty) und «fk» (Freistoss = Standard). */
+export const kindOf = (g: { kind?: GoalKind; pen?: boolean; fk?: boolean }): GoalKind | null =>
+  g.kind ?? (g.pen ? "penalty" : g.fk ? "standard" : null);
+
+export interface KindCount {
+  standard: number;
+  penalty: number;
+  konter: number;
+  spiel: number;
+  /** ohne Angabe */
+  none: number;
+  /** nur eigene Tore: Eigentore des Gegners */
+  og: number;
+  total: number;
+}
+export interface GoalKinds {
+  ours: KindCount;
+  theirs: KindCount;
+}
+
+export function goalKinds(ms: readonly Match[]): GoalKinds {
+  const blank = (): KindCount => ({ standard: 0, penalty: 0, konter: 0, spiel: 0, none: 0, og: 0, total: 0 });
+  const o: GoalKinds = { ours: blank(), theirs: blank() };
+  for (const m of ms) {
+    if (m.forfait) continue;
+    for (const g of m.goals || []) {
+      o.ours.total++;
+      if (g.og) o.ours.og++;
+      else o.ours[kindOf(g) ?? "none"]++;
+    }
+    for (const g of m.against || []) {
+      o.theirs.total++;
+      o.theirs[kindOf(g) ?? "none"]++;
+    }
+  }
   return o;
 }

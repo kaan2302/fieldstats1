@@ -1404,12 +1404,26 @@ td input.w {
 }
 .goalrow {
   display: grid;
-  grid-template-columns: 70px 1fr 1fr 36px;
+  grid-template-columns: 62px 1fr 1fr 1fr 36px;
   gap: 6px;
   margin-top: 6px;
 }
 .goalrow.ag {
-  grid-template-columns: 70px 1fr 36px;
+  grid-template-columns: 62px 2fr 1fr 36px;
+}
+@media (max-width: 560px) {
+  .goalrow {
+    grid-template-columns: 56px 1fr 1fr 36px;
+  }
+  .goalrow > select[aria-label="Torart"] {
+    grid-column: 2 / 4;
+  }
+  .goalrow.ag {
+    grid-template-columns: 56px 1fr 36px;
+  }
+  .goalrow.ag > select[aria-label="Torart"] {
+    grid-column: 2 / 3;
+  }
 }
 .goalrow input,
 .goalrow select {

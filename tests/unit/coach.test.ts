@@ -96,3 +96,33 @@ describe("Trainer-Analysen", () => {
     expect(s.after.per90!).toBeCloseTo(90 / 50, 5);
   });
 });
+
+describe("Torarten", () => {
+  it("zählt Torarten, übernimmt alte pen/fk-Angaben und Eigentore", async () => {
+    const { goalKinds, kindOf } = await import("../../src/domain/coach");
+    const mm = {
+      id: "1",
+      date: "2026-09-01",
+      opp: "X",
+      home: true,
+      status: "played",
+      gf: 4,
+      ga: 2,
+      goals: [
+        { min: "1", who: "a", kind: "konter" },
+        { min: "2", who: "a", pen: true },
+        { min: "3", who: "a", fk: true },
+        { min: "4", who: null, og: true },
+      ],
+      against: [
+        { min: "5", who: "", kind: "standard" },
+        { min: "6", who: "" },
+      ],
+    } as unknown as Match;
+    expect(kindOf({ pen: true })).toBe("penalty");
+    expect(kindOf({ fk: true, kind: "spiel" })).toBe("spiel");
+    const k = goalKinds([mm, { ...mm, forfait: true }]);
+    expect(k.ours).toMatchObject({ konter: 1, penalty: 1, standard: 1, spiel: 0, og: 1, none: 0, total: 4 });
+    expect(k.theirs).toMatchObject({ standard: 1, none: 1, total: 2 });
+  });
+});
