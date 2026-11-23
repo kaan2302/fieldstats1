@@ -1532,22 +1532,44 @@ dialog::backdrop {
   margin-top: 0;
 }
 
-/* Analyse: Abschnitte «Einfach» und «Detailliert» */
-.asec {
+/* Analyse: aufklappbare Abschnitte (Text, Einfach, Detailliert) */
+.afold {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel2);
+}
+.afold > summary {
+  list-style: none;
+  cursor: pointer;
   display: flex;
   align-items: baseline;
   gap: 10px;
   flex-wrap: wrap;
-  margin: 18px 0 10px;
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
+  padding: 14px 16px;
 }
-.asec:first-child {
-  margin-top: 0;
-  padding-top: 0;
-  border-top: 0;
+.afold > summary::-webkit-details-marker {
+  display: none;
 }
-.asec h2 {
-  margin: 0;
-  font-size: 18px;
+.afold > summary::before {
+  content: "▸";
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+.afold[open] > summary::before {
+  transform: rotate(90deg);
+}
+.afold > summary .t {
+  font: 800 16px var(--display);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.afold.sm > summary {
+  padding: 9px 14px;
+}
+.afold.sm > summary .t {
+  font-size: 13px;
+}
+.afold-b {
+  padding: 0 16px 16px;
 }

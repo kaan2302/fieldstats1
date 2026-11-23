@@ -1,6 +1,9 @@
 import { S } from "../state";
 import {
   KINDS,
+  autoUsText,
+  oppStats,
+  vsStrength,
   res,
   goalKinds,
   load,
@@ -27,6 +30,18 @@ import { renderOpp } from "./opp";
 import { kpi as kpiBase } from "../ui";
 
 /** Tab «Analyse»: Kennzahlen, Torminuten, Einschätzung und Vertiefung. */
+/** Auf-/zugeklappt merken (bleibt bei neuem Rendern und Neuladen erhalten). */
+const OPEN_KEY = "analyseOpen";
+const openState: Record<string, boolean> = (() => {
+  try {
+    return JSON.parse(localStorage.getItem(OPEN_KEY) || "{}");
+  } catch {
+    return {};
+  }
+})();
+const fold = (key: string, title: string, info: string, body: string, small = false) =>
+  `<details class="afold${small ? " sm" : ""}" data-fold="${key}" ${openState[key] ? "open" : ""}><summary><span class="t">${title}</span><span class="small muted">${info}</span></summary><div class="afold-b">${body}</div></details>`;
+
 export function renderUs(pk: PlayerKPI[], tk: TeamKPI): void {
   const ms = S.matches.filter(m => played(m) && official(m)).sort(byDate);
   if (!ms.length) {
@@ -36,7 +51,56 @@ export function renderUs(pk: PlayerKPI[], tk: TeamKPI): void {
   }
   const row = (S.table?.rows || []).find(r => isOurs(r.team));
   $("usInfo").textContent = row ? `${row.rank}. Platz · ${row.pts} Punkte` : "";
-  $("usBody").innerHTML = renderSimple(pk, tk, ms) + renderDetail(ms);
+  const an = S.analyses.find(a => isOurs(a.opp));
+  const text =
+    `<div style="white-space:pre-wrap;line-height:1.5">${esc(autoUsText())}</div>` +
+    (an
+      ? `<details style="margin-top:10px"><summary class="small muted" style="cursor:pointer">Ausführliche KI-Analyse vom ${fmtD(String(an.at).slice(0, 10))}</summary><div style="white-space:pre-wrap;line-height:1.5;margin-top:6px">${esc(an.text)}</div></details>`
+      : "");
+  $("usBody").innerHTML =
+    renderTiles(pk, tk, ms) +
+    fold("text", "Text-Analyse", "Einschätzung in Worten", text, true) +
+    fold("simple", "Einfache Analyse", "Resultate · Restprogramm · Torschützen · Gegnerstärke", renderSimple(pk, ms)) +
+    fold("detail", "Detaillierte Analyse", "Torart · Phasen · Einsätze · wer macht den Unterschied", renderDetail(ms));
+  ($("usBody") as HTMLElement).querySelectorAll<HTMLDetailsElement>("details[data-fold]").forEach(
+    d =>
+      (d.ontoggle = () => {
+        openState[d.dataset.fold ?? ""] = d.open;
+        try {
+          localStorage.setItem(OPEN_KEY, JSON.stringify(openState));
+        } catch {}
+      }),
+  );
+}
+
+/** Kacheln oben (immer sichtbar). */
+function renderTiles(pk: PlayerKPI[], tk: TeamKPI, ms: Match[]): string {
+  const pl = ppg(ms.slice(-5)),
+    pb = ppg(ms.slice(0, -5)),
+    trend = pl != null && pb != null ? (pl - pb > 0.3 ? "steigend ▲" : pl - pb < -0.3 ? "fallend ▼" : "stabil ●") : "–";
+  const pp = (x: { n: number; pts: number }) => (x.n ? (x.pts / x.n).toFixed(2) : "–");
+  const nx = nextMatch(),
+    no = nx ? oppStats(nx.opp) : null;
+  const top = pk
+    .filter(p => p.g > 0)
+    .sort((a, b) => b.g - a.g)
+    .slice(0, 3);
+  const kpi = (v: string, l: string, x?: string) => kpiBase(v, l, x, 24);
+  return `<div class="kpis">
+      ${kpi(tk.form.map(r => `<span class="dot ${r}">${r}</span>`).join(""), "Form letzte 5", `${pl != null ? pl.toFixed(2) : "–"} Pkt/Spiel · vorher ${pb != null ? pb.toFixed(2) : "–"}`)}
+      ${kpi(trend, "Trend", SP(tk.n))}
+      ${kpi(`${pp(tk.home)} / ${pp(tk.away)}`, "Pkt/Spiel Heim / Ausw.", `${tk.home.pts} Pkt Heim · ${tk.away.pts} Pkt Ausw.`)}
+      ${kpi(`${(tk.gf / tk.n).toFixed(1)} : ${(tk.ga / tk.n).toFixed(1)}`, "Tore / Gegentore pro Spiel", `${tk.cs} × zu null`)}
+      ${kpi(
+        top.length ? esc(top[0].name) + " " + top[0].g : "–",
+        "Bester Torschütze",
+        top
+          .slice(1)
+          .map(p => esc(p.name) + " " + p.g)
+          .join(" · "),
+      )}
+      ${nx && no ? kpi(esc(nx.opp), "Nächster Gegner", `${fmtD(nx.date)} · Form ${no.form.join("") || "–"}`) : ""}
+    </div>`;
 }
 const sub = (t: string) => `<span style="text-transform:none;letter-spacing:0">· ${t}</span>`;
 const unit = (t: string) => `<small class="muted" style="font:700 11px var(--body)"> ${t}</small>`;
@@ -45,8 +109,6 @@ const f2 = (v: number | null | undefined) => (v == null ? "–" : v.toFixed(2));
 const sign = (v: number) => (v > 0 ? "+" : "") + v.toFixed(2);
 
 const SP = (n: number) => plural(n, "Spiel", "Spiele");
-const section = (title: string, info: string) =>
-  `<div class="asec"><h2>${title}</h2><span class="small muted">${info}</span></div>`;
 const grid = (cards: string[]) =>
   `<div class="acards">${cards
     .filter(Boolean)
@@ -54,17 +116,7 @@ const grid = (cards: string[]) =>
     .join("")}</div>`;
 
 /** Einfache Analyse: reicht mit Resultaten, Torschützen und Vorlagen. */
-function renderSimple(pk: PlayerKPI[], tk: TeamKPI, ms: Match[]): string {
-  const pp = (x: { n: number; pts: number }) => (x.n ? (x.pts / x.n).toFixed(2) : "–");
-  const pl = ppg(ms.slice(-5));
-  const kpi = (v: string, l: string, s?: string) => kpiBase(v, l, s, 24);
-  const kpis = `<div class="kpis">
-      ${kpi(tk.form.map(r => `<span class="dot ${r}">${r}</span>`).join(""), "Form letzte 5", `${pl != null ? pl.toFixed(2) : "–"} Pkt/Spiel`)}
-      ${kpi(`${tk.S}-${tk.U}-${tk.N}`, "Siege-Unent.-Niederl.", SP(tk.n))}
-      ${kpi(`${pp(tk.home)} / ${pp(tk.away)}`, "Pkt/Spiel Heim / Ausw.")}
-      ${kpi(`${(tk.gf / tk.n).toFixed(1)} : ${(tk.ga / tk.n).toFixed(1)}`, "Tore / Gegentore pro Spiel", `${tk.cs} × zu null`)}
-    </div>`;
-
+function renderSimple(pk: PlayerKPI[], ms: Match[]): string {
   // Resultate
   const last = [...ms].reverse().slice(0, 8);
   const results = `<h3>Resultate ${sub("die letzten Spiele")}</h3><div class="list">${last
@@ -99,17 +151,25 @@ function renderSimple(pk: PlayerKPI[], tk: TeamKPI, ms: Match[]): string {
       : note("Braucht eine Tabelle (Einstellungen → Tabelle &amp; Resultate).")
   }`;
 
-  const an = S.analyses.find(a => isOurs(a.opp));
-  const ai = an
-    ? `<details style="margin:0 0 14px"><summary class="small muted" style="cursor:pointer">Ausführliche KI-Analyse vom ${fmtD(String(an.at).slice(0, 10))}</summary><div style="white-space:pre-wrap;line-height:1.5;margin-top:6px">${esc(an.text)}</div></details>`
-    : "";
+  // Bilanz nach Gegnerstärke
+  const vs = vsStrength(ms, S.table?.rows || [], isOurs);
+  const low = vs.find(g => g.key === "unten");
+  const strength = `<h3>Bilanz nach Gegnerstärke ${sub("aktueller Tabellenplatz")}</h3>${
+    vs.length
+      ? `<div class="list">${vs
+          .map(
+            g =>
+              `<div class="li"><b>${g.label}</b><span class="small muted">${g.n ? `${SP(g.n)} · ${g.S}-${g.U}-${g.N} · Tore ${g.gf}:${g.ga}` : "noch keine Spiele"}</span><span class="n">${f2(g.ppg)}${unit("Pkt/Sp.")}</span></div>`,
+          )
+          .join("")}</div>${
+          low && low.n >= 2 && low.ppg != null && low.ppg < 1.5
+            ? note("Gegen die unteren Teams fehlen Punkte – das sind die Spiele, die man holen muss.")
+            : ""
+        }`
+      : note("Braucht eine Tabelle.")
+  }`;
 
-  return (
-    section("Einfache Analyse", "reicht mit Resultaten, Toren und Vorlagen") +
-    kpis +
-    ai +
-    grid([results, scorers, rest])
-  );
+  return grid([results, rest, scorers, strength]);
 }
 
 /** Detaillierte Analyse: braucht Torminuten, Torart und Einsätze (Live-Modus oder «Spiel bearbeiten»). */
@@ -213,10 +273,8 @@ function renderDetail(ms: Match[]): string {
   }`;
 
   return (
-    section(
-      "Detaillierte Analyse",
-      "braucht Torminuten, Torart und Einsätze – im Live-Modus oder unter «Spiel bearbeiten»",
-    ) + grid([kinds, phase, heavy, idle, diff])
+    note("Braucht Torminuten, Torart und Einsätze – im Live-Modus oder unter «Spiel bearbeiten» erfassen.") +
+    grid([kinds, phase, heavy, idle, diff])
   );
 }
 /** Tab «Start»: kompakte Übersicht. */
