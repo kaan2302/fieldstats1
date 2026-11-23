@@ -1,11 +1,13 @@
 import { autoOppText, byDate, nextMatch, oppNames, oppStats, played } from "../domain";
-import { $, esc, fmtD, norm } from "../util";
+import { $, $$, esc, fmtD, norm } from "../util";
+import { del } from "../db";
 import { S } from "../state";
 import { minuteChart } from "../charts";
 import { kpi as kpiBase } from "../ui";
 
 /** Tab «Gegner». */
 export function renderOpp(): void {
+  renderAnalysesAdmin();
   const names = oppNames(),
     sel = $("oppSel"),
     cur = sel.value,
@@ -56,4 +58,29 @@ export function renderOpp(): void {
 
 export function initOpp() {
   $("oppSel").onchange = renderOpp;
+}
+
+/** Liste der gespeicherten KI-Analysen (nur Admin, z. B. aus Claude Code für das eigene Team). */
+function renderAnalysesAdmin(): void {
+  $("aPanel").hidden = !(S.admin && S.analyses.length);
+  if ($("aPanel").hidden) return;
+  $("aList").innerHTML = S.analyses.length
+    ? S.analyses
+        .sort((a, b) => b.at.localeCompare(a.at))
+        .map(
+          a =>
+            `<div class="li"><b>${esc(a.opp)}</b><span class="small muted">${fmtD(a.at.slice(0, 10))}</span><button class="btn sm danger" type="button" data-ad="${esc(a.id)}" style="margin-left:auto">Löschen</button></div>`,
+        )
+        .join("")
+    : "";
+  $$("[data-ad]", $("aList")).forEach(
+    b =>
+      (b.onclick = async () => {
+        try {
+          await del("analyses", b.dataset.ad ?? "");
+        } catch (e) {
+          b.textContent = "Fehler";
+        }
+      }),
+  );
 }

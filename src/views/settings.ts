@@ -70,25 +70,6 @@ export function renderSettings() {
   $("adminMail2").textContent = S.email || "";
   $("pubLink").value = teamUrl(ctx.team ?? "");
   renderAbo();
-  $("aList").innerHTML = S.analyses.length
-    ? S.analyses
-        .sort((a, b) => b.at.localeCompare(a.at))
-        .map(
-          a =>
-            `<div class="li"><b>${esc(a.opp)}</b><span class="small muted">${fmtD(a.at.slice(0, 10))}</span><button class="btn sm danger" type="button" data-ad="${esc(a.id)}" style="margin-left:auto">Löschen</button></div>`,
-        )
-        .join("")
-    : "";
-  $$("[data-ad]", $("aList")).forEach(
-    b =>
-      (b.onclick = async () => {
-        try {
-          await del("analyses", b.dataset.ad ?? "");
-        } catch (e) {
-          b.textContent = "Fehler";
-        }
-      }),
-  );
 }
 export function previewP() {
   const p = {

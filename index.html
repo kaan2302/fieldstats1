@@ -235,6 +235,13 @@
           </div>
           <div id="oppBody"></div>
         </div>
+        <div class="panel" id="aPanel" hidden>
+          <div class="h"><h2>Gespeicherte KI-Analysen</h2></div>
+          <p class="small muted" style="margin-top: 0">
+            Nur für Admins sichtbar. Löschen entfernt die Analyse für alle.
+          </p>
+          <div class="list" id="aList"></div>
+        </div>
       </section>
 
       <!-- EINSTELLUNGEN -->
@@ -310,24 +317,6 @@
                   <path d="M3 5h18M3 12h18M3 19h18" />
                   <path d="M8 5v14" /></svg></span
               >Tabelle &amp; Resultate
-            </button>
-            <button type="button" data-s="import">
-              <span class="i"
-                ><svg
-                  viewBox="0 0 24 24"
-                  width="16"
-                  height="16"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M12 3v12" />
-                  <path d="M7 10l5 5 5-5" />
-                  <path d="M5 21h14" /></svg></span
-              >Import &amp; Analysen
             </button>
             <button type="button" data-s="abo">
               <span class="i"
@@ -473,23 +462,6 @@
               </div>
             </div>
             <!-- Import -->
-            <div class="panel" data-sp="import" hidden>
-              <div class="h"><h2>Import &amp; Gegner-Analysen</h2></div>
-              <p style="margin-top: 0">
-                Spielberichte, Tabelle und Spielplan von football.ch sowie die KI-Gegner-Analysen laufen über
-                <strong>Claude Code</strong>. Schreib dort zum Beispiel:
-              </p>
-              <div class="list">
-                <div class="li">«Importiere alle Spielberichte unserer Gruppe von football.ch»</div>
-                <div class="li">«Hol die Resultate und die Tabelle vom Wochenende»</div>
-                <div class="li">«Erstelle die Gegner-Analyse für den nächsten Gegner»</div>
-              </div>
-              <p class="small muted">
-                Claude schreibt die Daten direkt in die Datenbank. Sie erscheinen hier und bei allen anderen sofort.
-              </p>
-              <h3 style="margin-top: 14px">Gespeicherte Analysen</h3>
-              <div class="list" id="aList"></div>
-            </div>
             <!-- Abo -->
             <div class="panel" data-sp="abo" hidden>
               <div class="h"><h2>Abonnement</h2></div>
