@@ -1,3 +1,11 @@
+// Schriften vom eigenen Server (keine Daten an Google)
+import "@fontsource/oxanium/500.css";
+import "@fontsource/oxanium/700.css";
+import "@fontsource/oxanium/800.css";
+import "@fontsource/manrope/400.css";
+import "@fontsource/manrope/600.css";
+import "@fontsource/manrope/700.css";
+import "@fontsource/manrope/800.css";
 import "./styles.css";
 import { initApp, render } from "./views/app";
 import { loadAll, reloadSoon, sb, showErr } from "./db";
@@ -10,6 +18,7 @@ import { initOpp } from "./views/opp";
 import { initSettings } from "./views/settings";
 import { initEdit } from "./views/match-edit";
 import { initTooltip } from "./tooltip";
+import { initLegal } from "./legal";
 
 initSeason();
 initOpp();
@@ -19,6 +28,7 @@ initApp();
 initAuth();
 initLanding();
 initTooltip();
+initLegal();
 render();
 (async () => {
   if (ctx.liveKey) {

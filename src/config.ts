@@ -9,3 +9,15 @@ export const DEFAULT_TEAM: string | null = "sc-binningen";
 export const STRIPE_CHECKOUT = "";
 /** Stripe Kundenportal zum Kündigen (leer = noch nicht verbunden). */
 export const STRIPE_PORTAL = "";
+
+/** Betreiber für Impressum, Datenschutz und AGB. Leere Felder erscheinen als «[bitte ergänzen]». */
+export const OPERATOR = {
+  name: "", // Vor- und Nachname bzw. Firmenname
+  address: "", // Strasse Nr., PLZ Ort
+  email: "", // Kontakt-E-Mail
+  court: "", // Gerichtsstand, z. B. «Basel»
+  vat: "Nicht mehrwertsteuerpflichtig.", // oder «MWST-Nr. CHE-…»
+  price: "CHF 19.90",
+  trialDays: 30,
+  updated: "23.11.2026",
+};

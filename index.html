@@ -12,12 +12,6 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="SCB Kader" />
     <title>SC Binningen · Kader &amp; Statistiken</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;700;800&family=Manrope:wght@400;600;700;800&display=swap"
-      rel="stylesheet"
-    />
   </head>
   <body>
     <div class="wrap">
@@ -110,6 +104,10 @@
               >Passwort<input id="rgPw" type="password" autocomplete="new-password" minlength="8" required
             /></label>
             <button class="btn hot" type="submit" id="rgGo">Team erstellen – 30 Tage gratis</button>
+            <p class="small muted">
+              Mit «Team erstellen» akzeptierst du die <a href="#" data-legal="agb">AGB</a> und die
+              <a href="#" data-legal="datenschutz">Datenschutzerklärung</a>.
+            </p>
             <p class="status" id="rgMsg" role="status"></p>
           </form>
           <form id="lnLog" class="grid" style="grid-template-columns: 1fr" hidden>
@@ -250,6 +248,7 @@
             <button type="button" data-s="import"><span class="i">⇣</span>Import &amp; Analysen</button>
             <button type="button" data-s="abo"><span class="i">CHF</span>Abonnement</button>
             <button type="button" data-s="zugriff"><span class="i">🔒</span>Zugriff &amp; Daten</button>
+            <button type="button" data-s="recht"><span class="i">§</span>AGB &amp; Impressum</button>
           </div>
           <div>
             <!-- Verein -->
@@ -364,6 +363,15 @@
               <div id="aboBody"></div>
             </div>
             <!-- Zugriff -->
+            <div class="panel" data-sp="recht" hidden>
+              <div class="h"><h2>AGB &amp; Impressum</h2></div>
+              <p class="small muted">
+                Diese Texte sind für alle über den Link «AGB · Datenschutz · Impressum» unten auf jeder Seite
+                erreichbar.
+              </p>
+              <p class="status" id="legalWarn" role="status"></p>
+              <div id="legalAdmin"></div>
+            </div>
             <div class="panel" data-sp="zugriff" hidden>
               <div class="h"><h2>Zugriff</h2></div>
               <p style="margin: 0 0 6px">
@@ -417,6 +425,8 @@
     >
       <span id="footClub"></span
       ><span
+        ><a href="#" data-legal="impressum" style="color: var(--muted); font-weight: 700; margin-right: 14px"
+          >AGB · Datenschutz · Impressum</a
         ><a href="?neu" style="color: var(--muted); font-weight: 700; margin-right: 14px">Eigenes Team erstellen</a
         ><button
           type="button"

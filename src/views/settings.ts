@@ -1,3 +1,4 @@
+import { legalHtml, legalMissing } from "../legal";
 import { S, ctx, teamUrl } from "../state";
 import { $, $$, errMsg, esc, face, fmtD, initials, norm, num, shrink, slug, uid } from "../util";
 import { LINE, POS_ALL, POS_ORDER } from "../positions";
@@ -14,6 +15,9 @@ let editP: string | null = null;
 let pendingPhoto: string | null | undefined;
 let pendingLogo: string | null | undefined;
 export function renderSettings() {
+  $("legalAdmin").innerHTML = legalHtml();
+  const miss = legalMissing();
+  $("legalWarn").textContent = miss.length ? `Noch zu ergänzen: ${miss.join(", ")} (in src/config.ts → OPERATOR).` : "";
   document
     .querySelectorAll<HTMLElement>(".side button")
     .forEach(b => b.setAttribute("aria-current", String(b.dataset.s === setView)));

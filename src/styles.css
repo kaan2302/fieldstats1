@@ -1479,3 +1479,26 @@ dialog::backdrop {
     transform: none;
   }
 }
+
+/* Rechtstexte */
+.legal h3 {
+  font: 800 18px var(--display);
+  margin: 22px 0 6px;
+}
+.legal h3:first-child {
+  margin-top: 0;
+}
+.legal p,
+.legal li {
+  line-height: 1.55;
+}
+.legal ul {
+  padding-left: 18px;
+  margin: 4px 0 10px;
+}
+.legal mark {
+  background: rgba(255, 196, 0, 0.25);
+  color: inherit;
+  padding: 0 3px;
+  border-radius: 4px;
+}
