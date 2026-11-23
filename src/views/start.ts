@@ -274,7 +274,9 @@ function renderDetail(ms: Match[]): string {
 
   return (
     note("Braucht Torminuten, Torart und Einsätze – im Live-Modus oder unter «Spiel bearbeiten» erfassen.") +
-    grid([kinds, phase, heavy, idle, diff])
+    // oben: Torart + Phasen links, «wer macht den Unterschied» rechts; unten: viel und wenig Einsatz nebeneinander
+    `<div class="arow"><div>${kinds}${phase}</div><div>${diff}</div></div>` +
+    `<div class="arow"><div>${heavy}</div><div>${idle}</div></div>`
   );
 }
 /** Tab «Start»: kompakte Übersicht. */
