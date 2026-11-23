@@ -60,8 +60,8 @@ Jede Zeile: `team_id`, `coll`, `id`, `data` (JSON).
 
 - `team/meta` – Verein, Mannschaft, Liga, Saison, Name auf football.ch, Logo
 - `team/table` – Tabelle `{rows:[{rank,team,sp,s,u,n,gf,ga,pts}], updated}`
-- `players/<id>` – `{name, nr, pos, year, captain, photo}`
-- `matches/<id>` – eigene Spiele `{date, time, opp, home, comp, status: played|planned, gf, ga, goals:[{min,who,ast}], against:[{min,who}], stats:{<playerId>:{start,sub,min,y,r}}, lineup}`
+- `players/<id>` – `{name, nr, pos, year, captain}` – `name` nur «Vorname N.», keine Fotos (Datenschutz)
+- `matches/<id>` – eigene Spiele `{date, time, opp, home, comp, status: played|planned, gf, ga, goals:[{min,who,ast}], against:[{min,who:"Vorname N."}], stats:{<playerId>:{start,sub,min,y,r}}, lineup}`
 - `fixtures/<id>` – andere Spiele der Gruppe `{date, home, away, hg, ag, comp, goals:[{min,team:home|away,who}]}`
 - `analyses/<id>` – Gegner-Analysen `{opp, text, at}`
 - `ownernotes/<playerId>` – private Notizen, nur für den Admin lesbar

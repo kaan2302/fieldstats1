@@ -1,5 +1,4 @@
 // Kleine, allgemeine Helfer ohne Fachlogik.
-import { S } from "./state";
 import type { Player } from "./types";
 
 /** Element per ID. Bewusst locker typisiert, weil alle Elemente aus index.html stammen. */
@@ -41,7 +40,7 @@ export const norm = (s: unknown): string =>
   String(s || "")
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 
@@ -56,24 +55,11 @@ export const initials = (n: unknown): string =>
     .slice(0, 2)
     .toUpperCase();
 
-const shortName = (name: string) => {
-  const w = name.trim().split(/\s+/);
-  return w[0] + " " + w[w.length - 1][0].toUpperCase() + ".";
-};
-/** Kurzname «Remo H.»; bei Gleichheit im Kader zwei Buchstaben («Remo Hi.»). */
-export const sn = (p: Pick<Player, "id" | "name"> | null | undefined): string => {
-  const w = String(p?.name || "")
-    .trim()
-    .split(/\s+/);
-  if (!p || w.length < 2) return w[0] || "?";
-  const me = shortName(p.name);
-  const clash = S.players.some(o => o.id !== p.id && o.name?.trim().includes(" ") && shortName(o.name) === me);
-  return clash ? w[0] + " " + w[w.length - 1].slice(0, 2) + "." : me;
-};
+/** Anzeigename. Namen werden bereits als «Vorname N.» gespeichert (siehe domain/privacy.ts). */
+export const sn = (p: Pick<Player, "id" | "name"> | null | undefined): string => p?.name?.trim() || "?";
 
-/** Foto oder Initialen als HTML. */
-export const face = (p: Pick<Player, "name" | "photo"> | null | undefined): string =>
-  p?.photo ? `<img src="${esc(p.photo)}" alt="">` : esc(initials(p ? p.name : "?"));
+/** Initialen als HTML (Fotos gibt es aus Datenschutzgründen nicht). */
+export const face = (p: Pick<Player, "name"> | null | undefined): string => esc(initials(p ? p.name : "?"));
 
 export const fmtD = (d: string, o?: Intl.DateTimeFormatOptions): string =>
   new Date(d + "T12:00").toLocaleDateString("de-CH", o || { day: "2-digit", month: "2-digit", year: "2-digit" });

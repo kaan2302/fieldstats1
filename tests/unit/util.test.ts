@@ -1,6 +1,6 @@
 import { POS, normPos } from "../../src/positions";
 import { describe, expect, it } from "vitest";
-import { minKey, minNum, norm, slug, sn } from "../../src/util";
+import { minKey, minNum, norm, slug } from "../../src/util";
 
 describe("util", () => {
   it("slug folgt der Regel aus CLAUDE.md", () => {
@@ -16,9 +16,6 @@ describe("util", () => {
     expect(minNum("23")).toBe(23);
     expect(minKey("45+2")).toBeLessThan(minKey("46"));
     expect(minKey("90+4")).toBeGreaterThan(minKey("90+2"));
-  });
-  it("Kurzname im Stil «Remo H.»", () => {
-    expect(sn({ id: "x", name: "Remo Huber" })).toBe("Remo H.");
   });
 });
 

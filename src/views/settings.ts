@@ -1,3 +1,4 @@
+import { shortName, uniqueShortName } from "../domain/privacy";
 import { legalHtml, legalMissing } from "../legal";
 import { S, ctx, teamUrl } from "../state";
 import { $, $$, errMsg, esc, face, fmtD, initials, norm, num, shrink, slug, uid } from "../util";
@@ -12,7 +13,6 @@ import type { TableRow } from "../types";
 
 export let setView = "verein";
 let editP: string | null = null;
-let pendingPhoto: string | null | undefined;
 let pendingLogo: string | null | undefined;
 export function renderSettings() {
   $("legalAdmin").innerHTML = legalHtml();
@@ -93,11 +93,10 @@ export function renderSettings() {
 export function previewP() {
   const p = {
     id: editP ?? "",
-    name: $("peName").value || "Name",
+    name: shortName($("peName").value) || "Name",
     nr: $("peNr").value || "–",
     pos: $("pePos").value,
     captain: $("peCap").checked,
-    photo: pendingPhoto !== undefined ? pendingPhoto : editP && pById(editP)?.photo,
   };
   const k = playerKPI().find(x => x.id === editP);
   const el = $("pePrev");
@@ -109,7 +108,6 @@ export function previewP() {
 }
 export function openPEdit(id: string | null): void {
   editP = id;
-  pendingPhoto = undefined;
   const p = id ? pById(id) : null;
   $("peTitle").textContent = p ? "Spieler bearbeiten" : "Neuer Spieler";
   $("peName").value = p ? p.name : "";
@@ -118,7 +116,6 @@ export function openPEdit(id: string | null): void {
   $("peYear").value = p && p.year ? p.year : "";
   $("peNote").value = p ? S.notes[p.id] || "" : "";
   $("peCap").checked = !!(p && p.captain);
-  $("pePhoto").value = "";
   $("peDel").hidden = !p;
   $("peWarn").textContent = "";
   previewP();
@@ -258,20 +255,6 @@ export function initSettings() {
   };
   $("pePos").innerHTML = POS.map(([k, l]) => `<option value="${k}">${l} (${k})</option>`).join("");
   ["peName", "peNr", "pePos", "peCap"].forEach(id => $(id).addEventListener("input", previewP));
-  $("pePhoto").onchange = (e: Event) => {
-    const f = (e.target as HTMLInputElement).files?.[0];
-    if (f)
-      shrink(f, 220, d => {
-        if (d) {
-          pendingPhoto = d;
-          previewP();
-        } else $("peWarn").textContent = "Bild konnte nicht gelesen werden.";
-      });
-  };
-  $("peNoPhoto").onclick = () => {
-    pendingPhoto = null;
-    previewP();
-  };
   $("addPlayer").onclick = () => openPEdit(null);
   $("peForm").onsubmit = async (e: Event) => {
     e.preventDefault();
@@ -281,19 +264,16 @@ export function initSettings() {
       return;
     }
     const old = editP ? pById(editP) : null;
+    const id = editP || uid();
     const p = {
       ...(old || {}),
-      id: editP || uid(),
-      name,
+      id,
+      name: uniqueShortName(name, id, S.players),
       nr: num($("peNr").value) || null,
       pos: $("pePos").value,
       year: num($("peYear").value) || null,
       captain: $("peCap").checked,
     };
-    if (pendingPhoto !== undefined) {
-      if (pendingPhoto) p.photo = pendingPhoto;
-      else delete p.photo;
-    }
     $("peSave").disabled = true;
     try {
       await put("players", p);

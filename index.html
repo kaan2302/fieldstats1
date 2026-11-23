@@ -241,19 +241,152 @@
       <section id="v-einstellungen" hidden>
         <div class="set">
           <div class="side" role="tablist" aria-label="Einstellungen">
-            <button type="button" data-s="verein"><span class="i">V</span>Verein</button>
-            <button type="button" data-s="spieler"><span class="i">S</span>Spieler</button>
-            <button type="button" data-s="spiele"><span class="i">M</span>Spiele</button>
-            <button type="button" data-s="liga"><span class="i">#</span>Tabelle &amp; Resultate</button>
-            <button type="button" data-s="import"><span class="i">⇣</span>Import &amp; Analysen</button>
-            <button type="button" data-s="abo"><span class="i">CHF</span>Abonnement</button>
-            <button type="button" data-s="zugriff"><span class="i">🔒</span>Zugriff &amp; Daten</button>
-            <button type="button" data-s="recht"><span class="i">§</span>AGB &amp; Impressum</button>
+            <button type="button" data-s="verein">
+              <span class="i"
+                ><svg
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6l7-3z" /></svg></span
+              >Mannschaft
+            </button>
+            <button type="button" data-s="spieler">
+              <span class="i"
+                ><svg
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M22 21v-2a4 4 0 0 0-3-3.9" />
+                  <path d="M16 3.1a4 4 0 0 1 0 7.8" /></svg></span
+              >Spieler
+            </button>
+            <button type="button" data-s="spiele">
+              <span class="i"
+                ><svg
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7l4 3-1.5 4.5h-5L8 10z" />
+                  <path d="M12 3v4M21 10l-5 0M3 10h5M15 21l-.5-6.5M9 21l.5-6.5" /></svg></span
+              >Spiele
+            </button>
+            <button type="button" data-s="liga">
+              <span class="i"
+                ><svg
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M3 5h18M3 12h18M3 19h18" />
+                  <path d="M8 5v14" /></svg></span
+              >Tabelle &amp; Resultate
+            </button>
+            <button type="button" data-s="import">
+              <span class="i"
+                ><svg
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 3v12" />
+                  <path d="M7 10l5 5 5-5" />
+                  <path d="M5 21h14" /></svg></span
+              >Import &amp; Analysen
+            </button>
+            <button type="button" data-s="abo">
+              <span class="i"
+                ><svg
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect x="2" y="5" width="20" height="14" rx="2" />
+                  <path d="M2 10h20" />
+                  <path d="M6 15h4" /></svg></span
+              >Abonnement
+            </button>
+            <button type="button" data-s="zugriff">
+              <span class="i"
+                ><svg
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect x="4" y="11" width="16" height="10" rx="2" />
+                  <path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg></span
+              >Zugriff &amp; Daten
+            </button>
+            <button type="button" data-s="recht">
+              <span class="i"
+                ><svg
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+                  <path d="M14 3v5h5" />
+                  <path d="M9 13h6M9 17h6" /></svg></span
+              >AGB &amp; Impressum
+            </button>
           </div>
           <div>
             <!-- Verein -->
             <div class="panel" data-sp="verein">
-              <div class="h"><h2>Verein &amp; Mannschaft</h2></div>
+              <div class="h"><h2>Mannschaft</h2></div>
               <div class="grid">
                 <label for="mClub">Vereinsname<input id="mClub" placeholder="SC Binningen" /></label>
                 <label for="mTeam">Mannschaft<input id="mTeam" placeholder="1. Mannschaft" /></label>
@@ -489,19 +622,12 @@
         </div>
         <div style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap">
           <div class="pc XXX" id="pePrev" style="width: 150px; pointer-events: none"></div>
-          <label for="pePhoto" style="flex: 1; min-width: 200px"
-            >Profilbild<input id="pePhoto" type="file" accept="image/*" /><button
-              class="btn sm"
-              type="button"
-              id="peNoPhoto"
-              style="margin-top: 6px; align-self: flex-start"
-            >
-              Bild entfernen
-            </button></label
-          >
+          <p class="small muted" style="flex: 1; min-width: 200px; margin: 0">
+            Aus Datenschutzgründen speichern wir nur Vorname und ersten Buchstaben des Nachnamens, keine Fotos.
+          </p>
         </div>
         <div class="grid">
-          <label for="peName">Name<input id="peName" required /></label>
+          <label for="peName">Name<input id="peName" required placeholder="Vorname N." autocomplete="off" /></label>
           <label for="peNr">Rückennummer<input id="peNr" type="number" min="1" max="99" inputmode="numeric" /></label>
           <label for="pePos">Position<select id="pePos"></select></label>
           <label for="peYear"

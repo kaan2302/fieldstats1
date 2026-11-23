@@ -20,7 +20,10 @@ Wichtige Regeln:
 - `fixtures`-ID: `slug(datum-heim-auswärts)`, z. B. `2026-11-07-fc-reinach-fc-aesch` (klein, Umlaute ohne Punkte, alles andere `-`).
 - `matches`: vorhandenes Spiel über Datum + Gegner suchen und ergänzen, nie doppelt anlegen. Gegebene Felder behalten.
 - Torminuten als Text (`"23"`, `"90+2"`). Unsere Tore: `goals:[{min, who:<playerId>, ast:<playerId|null>}]`, Gegentore: `against:[{min, who:"Name"}]`.
-- Spieler über Namen zuordnen, fehlende Spieler mit `players/<uuid>` anlegen (`pos:"ZM"`, Rückennummer, falls bekannt). Danach Kaa sagen, welche Positionen er prüfen soll.
+- Datenschutz: Personennamen immer nur als «Vorname N.» speichern (z. B. `Remo H.`), nie volle Nachnamen, nie Fotos. Gilt für `players.name`,
+  Gegentor-Schützen (`against.who`), Torschützen in `fixtures` und Analysetexte. Bei zwei gleichen Kurznamen im Kader zwei Buchstaben (`Remo Hu.`).
+- Spieler über den Kurznamen zuordnen (Name aus dem Spielbericht kürzen und vergleichen), fehlende Spieler mit `players/<uuid>` anlegen
+  (`name:"Vorname N."`, `pos:"ZM"`, Rückennummer, falls bekannt). Danach Kaa sagen, welche Positionen er prüfen soll.
 - Einsätze: `stats[playerId] = {start, sub, min, y, r}`. Startelf = 90 Min. minus Auswechslung, Eingewechselt = 90 minus Einwechselminute.
   Platzverweis (rot.gif und gelbrot.gif) zählt als `r:1` und beendet den Einsatz in der Minute der Karte (Startelf: Minute der Karte; Eingewechselt: Minute der Karte minus Einwechselminute). Icons mit «Bank» im Namen gehören zu Ersatzbank/Staff und werden ignoriert.
 - Tabelle: `team/table` mit `rows` und `updated` (heutiges Datum).
@@ -38,6 +41,6 @@ Erst-Import und wöchentliches Update: siehe `tools/ABLAEUFE.md`. Einrichtung am
 1. Daten sammeln: `list fixtures`, `list matches`, `get team table`. Für Gegner X alle Spiele, in denen X Heim oder Auswärts ist.
 2. Rechnen (nicht schätzen): Bilanz, Tore/Gegentore pro Spiel, Form der letzten 5, Punkte pro Spiel letzte 5 gegen vorher, Heim/Auswärts,
    Tore und Gegentore je 15 Minuten (1–15 … 76–90+), Top-Torschützen, Spiele gegen uns.
-3. Text, max. ca. 220 Wörter, Zwischentitel in Grossbuchstaben: FORM & TREND, WANN FALLEN IHRE TORE, WER TRIFFT, HEIM/AUSWÄRTS,
+3. Text, max. ca. 220 Wörter, Spielernamen nur als «Vorname N.», Zwischentitel in Grossbuchstaben: FORM & TREND, WANN FALLEN IHRE TORE, WER TRIFFT, HEIM/AUSWÄRTS,
    SCHWACHSTELLEN, 3 TIPPS FÜR UNS. Kein Markdown. Dünne Datenlage offen sagen.
 4. Speichern: `analyses/<slug(gegner)>` mit `{opp, text, at: ISO-Zeit}`.

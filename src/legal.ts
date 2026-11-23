@@ -23,7 +23,7 @@ export function impressumHtml(): string {
   return `<h3 id="lg-impressum">Impressum</h3>
 <p><b>Betreiber</b><br>${v(O.name)}<br>${v(O.address)}<br>E-Mail: ${v(O.email)}</p>
 <p>${esc(O.vat)}</p>
-<p>Für die Inhalte der einzelnen Team-Seiten (Spieler, Fotos, Resultate, Texte) ist der jeweilige Team-Admin verantwortlich.</p>`;
+<p>Für die Inhalte der einzelnen Team-Seiten (Spieler, Resultate, Texte) ist der jeweilige Team-Admin verantwortlich.</p>`;
 }
 
 export function datenschutzHtml(): string {
@@ -34,7 +34,8 @@ export function datenschutzHtml(): string {
 <p><b>Welche Daten wir bearbeiten</b></p>
 <ul>
 <li><b>Team-Admins:</b> E-Mail-Adresse und Passwort (nur verschlüsselt gespeichert) für das Login, Name des Teams, Abo-Status.</li>
-<li><b>Team-Daten:</b> Vereinsname, Logo, Spielernamen, Rückennummer, Position, Jahrgang, Spielerfotos, Einsätze, Tore, Vorlagen, Karten, Resultate, Tabellen und Analysetexte. Diese Daten erfasst der Team-Admin.</li>
+<li><b>Team-Daten:</b> Vereinsname, Vereinslogo, Spieler nur mit Vorname und erstem Buchstaben des Nachnamens (z. B. «Remo H.»), Rückennummer, Position, Jahrgang, Einsätze, Tore, Vorlagen, Karten, Resultate, Tabellen und Analysetexte. Diese Daten erfasst der Team-Admin. Torschützen anderer Teams werden ebenfalls nur so abgekürzt gespeichert.</li>
+<li><b>Keine Nachnamen, keine Fotos:</b> Volle Nachnamen und Fotos von Spielerinnen und Spielern werden nicht gespeichert. Die App zeigt nur Initialen.</li>
 <li><b>Private Notizen</b> zu Spielern sind nur für den Team-Admin sichtbar.</li>
 <li><b>Beim Aufruf der Seite</b> verarbeiten unsere Anbieter technisch notwendige Daten wie IP-Adresse, Zeitpunkt und Browser (Server-Protokolle).</li>
 </ul>
@@ -43,7 +44,7 @@ export function datenschutzHtml(): string {
 
 <p><b>Anbieter, die wir einsetzen</b></p>
 <ul>
-<li><b>Supabase</b> (Supabase Inc., USA): Datenbank (inkl. Spielerfotos und Logo) und Login. Die Daten liegen in einem Rechenzentrum von Amazon Web Services in <b>Irland (EU)</b>.</li>
+<li><b>Supabase</b> (Supabase Inc., USA): Datenbank (inkl. Vereinslogo) und Login. Die Daten liegen in einem Rechenzentrum von Amazon Web Services in <b>Irland (EU)</b>.</li>
 <li><b>GitHub Pages</b> (GitHub Inc., USA): Auslieferung der Webseite. Dabei fallen Server-Protokolle mit IP-Adresse an.</li>
 <li><b>Stripe</b> (Stripe Payments Europe Ltd., Irland): Zahlung des Abos, sobald die Bezahlung freigeschaltet ist. Kartendaten gibt man direkt bei Stripe ein, wir sehen sie nie.</li>
 </ul>
@@ -65,7 +66,7 @@ export function agbHtml(): string {
 <p><b>2. Registrierung</b><br>Wer ein Team erstellt, wird dessen Admin und muss mindestens 18 Jahre alt sein oder im Auftrag des Vereins handeln. Die Angaben müssen stimmen. Zugangsdaten sind geheim zu halten.</p>
 <p><b>3. Testphase und Abo</b><br>Die ersten ${O.trialDays} Tage sind gratis und verpflichten zu nichts. Danach kostet das Abo ${esc(O.price)} pro Monat und Team, im Voraus bezahlt über Stripe. ${esc(O.vat)}</p>
 <p><b>4. Kündigung</b><br>Das Abo ist jederzeit auf Ende des laufenden Monats kündbar. Bereits bezahlte Monate werden nicht zurückerstattet. Nach dem Ende der Testphase oder des Abos bleiben die Daten lesbar, Bearbeiten ist erst mit aktivem Abo wieder möglich. Auf Wunsch löschen wir das Team mit allen Daten.</p>
-<p><b>5. Pflichten des Team-Admins</b><br>Der Admin ist für die erfassten Inhalte verantwortlich. Er darf nur Daten und Fotos erfassen, für die er die Erlaubnis hat, und informiert die Spieler darüber, dass die Team-Seite öffentlich ist. Bei Minderjährigen braucht es das Einverständnis der Eltern. Live-Links gibt er nur an vertrauenswürdige Personen weiter.</p>
+<p><b>5. Pflichten des Team-Admins</b><br>Der Admin ist für die erfassten Inhalte verantwortlich. Spielerinnen und Spieler werden nur mit Vorname und erstem Buchstaben des Nachnamens erfasst; Fotos von Personen sind nicht vorgesehen. In Notizen und Texten erfasst der Admin keine weiteren persönlichen Angaben. Er informiert die Spieler darüber, dass die Team-Seite öffentlich ist. Bei Minderjährigen braucht es das Einverständnis der Eltern. Live-Links gibt er nur an vertrauenswürdige Personen weiter.</p>
 <p><b>6. Verfügbarkeit</b><br>Wir bemühen uns um einen störungsfreien Betrieb, garantieren aber keine ständige Verfügbarkeit. Wartungen und Ausfälle von Anbietern sind möglich. Wichtige Daten sollte der Admin zusätzlich selbst festhalten.</p>
 <p><b>7. Haftung</b><br>Wir haften nur für Schäden, die wir vorsätzlich oder grobfahrlässig verursachen. Für Inhalte der Teams und für Datenverlust durch Ausfälle von Anbietern haften wir im gesetzlich zulässigen Rahmen nicht.</p>
 <p><b>8. Sperrung</b><br>Bei Verstössen gegen diese AGB oder gegen das Gesetz können wir ein Team sperren oder löschen.</p>

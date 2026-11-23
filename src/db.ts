@@ -1,4 +1,5 @@
 import { normPos } from "./positions";
+import { applyPrivacy } from "./domain/privacy";
 import { createClient } from "@supabase/supabase-js";
 import { SB_KEY, SB_URL } from "./config";
 import { S, ctx } from "./state";
@@ -47,6 +48,12 @@ export async function loadAll() {
   // Alte Positionscodes (AV, DM, OM, FL) auf die neuen umstellen
   for (const p of next.players) p.pos = normPos(p.pos);
   for (const m of next.matches) for (const l of Object.values(m.lineup || {})) if (l.pos) l.pos = normPos(l.pos);
+  // Datenschutz: nur «Vorname N.», keine Fotos. Alte Daten kürzen und als Admin einmal zurückschreiben.
+  const dirty = applyPrivacy(next);
+  if (dirty.length && S.admin && !S.locked)
+    dbUpsert(dirty.map(({ coll, obj: { id, ...data } }) => ({ coll, id, data }))).then(({ error }) => {
+      if (error) console.warn("Datenschutz-Umstellung nicht gespeichert", error);
+    });
   S.all = { matches: next.matches, fixtures: next.fixtures, table: next.table, tables: next.tables };
   Object.assign(S, next);
   applySeason();

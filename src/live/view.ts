@@ -1,3 +1,4 @@
+import { shortName } from "../domain/privacy";
 // Live-Erfassung am Spielfeldrand: Aufstellung ziehen, Tore/Wechsel/Karten antippen, Abpfiff speichern.
 import { dbUpsert, loadAll, sb } from "../db";
 import { byDate, pById, played } from "../domain";
@@ -408,9 +409,9 @@ function agSheet(): void {
   sheet(
     "Gegentor",
     minField() +
-      `<label for="lsName">Torschütze Gegner (optional)<input id="lsName" placeholder="Name oder leer lassen"></label><div class="h" style="margin-top:10px"><span></span><button class="btn hot" type="button" id="lsOk">Gegentor speichern</button></div>`,
+      `<label for="lsName">Torschütze Gegner (optional)<input id="lsName" placeholder="Vorname N. oder leer lassen"></label><div class="h" style="margin-top:10px"><span></span><button class="btn hot" type="button" id="lsOk">Gegentor speichern</button></div>`,
     () => {
-      $("lsOk").onclick = () => addEv({ t: "ag", name: $("lsName").value.trim() });
+      $("lsOk").onclick = () => addEv({ t: "ag", name: shortName($("lsName").value) });
     },
   );
 }

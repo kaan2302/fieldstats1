@@ -11,7 +11,6 @@ export interface Player {
   pos?: string;
   year?: number | string;
   captain?: boolean;
-  photo?: string | null;
   sfvPid?: string;
   [key: string]: unknown;
 }

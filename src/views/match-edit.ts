@@ -1,3 +1,4 @@
+import { shortName } from "../domain/privacy";
 import type { LineupSpot } from "../types";
 import { S } from "../state";
 import { $, $$, errMsg, esc, fmtD, num, uid } from "../util";
@@ -153,7 +154,7 @@ export function initEdit() {
     const against = [...$("agRows").children]
       .map(d => {
         const [mi, w] = d.querySelectorAll("input");
-        return { min: mi.value.trim(), who: w.value.trim() };
+        return { min: mi.value.trim(), who: shortName(w.value) };
       })
       .filter(g => g.min || g.who);
     let gf = num($("fGF").value),
