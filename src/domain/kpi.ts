@@ -173,6 +173,9 @@ export interface DeepAnalysis {
   subA: string[];
   noSub: number;
   withXi: number;
+  /** Teamschnitt Tore / Gegentore pro Spiel (Spiele mit Startelf) */
+  avgGf: number;
+  avgGa: number;
   bottom: RestRow[];
 }
 
@@ -319,6 +322,8 @@ export function deepUs(): DeepAnalysis {
     subA,
     noSub,
     withXi: withXi.length,
+    avgGf: withXi.length ? withXi.reduce((t, m) => t + m.gf, 0) / withXi.length : 0,
+    avgGa: gaPerGame(withXi),
     bottom,
   };
 }

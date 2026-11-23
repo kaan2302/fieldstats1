@@ -6,3 +6,4 @@ export * from "./table";
 export * from "./texts";
 export * from "./privacy";
 export * from "./club";
+export * from "./coach";

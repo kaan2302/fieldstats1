@@ -1502,3 +1502,18 @@ dialog::backdrop {
   padding: 0 3px;
   border-radius: 4px;
 }
+
+/* Analyse: Karten, die sich lückenlos in Spalten verteilen */
+.acards {
+  columns: 380px 2;
+  column-gap: 18px;
+}
+.acards > .acard {
+  break-inside: avoid;
+  margin: 0 0 18px;
+  display: inline-block;
+  width: 100%;
+}
+.acards > .acard > h3:first-child {
+  margin-top: 0;
+}
