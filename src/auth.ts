@@ -2,28 +2,45 @@
 import type { Session } from "@supabase/supabase-js";
 import { loadAll, sb, showErr } from "./db";
 import { S, ctx } from "./state";
-import type { MyTeam } from "./types";
+import type { MyClub, MyTeam } from "./types";
+import { isLocked } from "./domain/club";
 import { $, today } from "./util";
 import { render } from "./views/app";
 import { renderLanding } from "./views/landing";
 
-/** Eigene Teams laden; nach der Registrierung das vorgemerkte Team anlegen. */
+/** Nach der Registrierung vorgemerkt: Einzel-Mannschaft oder Verein mit erster Mannschaft. */
+interface Pending {
+  id: string;
+  name: string;
+  club?: { id: string; name: string };
+  label?: string;
+}
+
+const fetchMine = async () => {
+  S.myTeams = ((await sb.rpc("my_teams")).data as MyTeam[]) || [];
+  S.myClubs = ((await sb.rpc("my_clubs")).data as MyClub[]) || [];
+};
+
+/** Eigene Mannschaften und Vereine laden; nach der Registrierung das Vorgemerkte anlegen. */
 export async function refreshAdmin(session: Session | null): Promise<void> {
   S.email = session?.user?.email || null;
   S.myTeams = [];
+  S.myClubs = [];
   if (session) {
-    const { data } = await sb.rpc("my_teams");
-    S.myTeams = (data as MyTeam[]) || [];
-    const pend = session.user.user_metadata?.pending_team as { id: string; name: string } | null | undefined;
+    await fetchMine();
+    const pend = session.user.user_metadata?.pending_team as Pending | null | undefined;
     if (pend && !S.myTeams.some(t => t.id === pend.id)) {
-      const { error } = await sb.rpc("create_team", { p_id: pend.id, p_name: pend.name });
+      const r = pend.club
+        ? (await sb.rpc("create_club", { p_id: pend.club.id, p_name: pend.club.name })).error ||
+          (await sb.rpc("create_club_team", { p_club: pend.club.id, p_id: pend.id, p_label: pend.label ?? "" })).error
+        : (await sb.rpc("create_team", { p_id: pend.id, p_name: pend.name })).error;
       await sb.auth.updateUser({ data: { pending_team: null } });
-      if (!error) S.myTeams = ((await sb.rpc("my_teams")).data as MyTeam[]) || [];
+      if (!r) await fetchMine();
     }
   }
   S.myTeam = S.myTeams.find(t => t.id === ctx.team) || null;
   S.admin = !!S.myTeam;
-  S.locked = !!S.myTeam && S.myTeam.plan !== "active" && S.myTeam.trial_until < today();
+  S.locked = isLocked(S.myTeam, today());
 }
 
 export async function applySession(session: Session | null): Promise<void> {

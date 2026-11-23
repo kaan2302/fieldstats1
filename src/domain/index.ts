@@ -5,3 +5,4 @@ export * from "./opponents";
 export * from "./table";
 export * from "./texts";
 export * from "./privacy";
+export * from "./club";

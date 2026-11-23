@@ -73,10 +73,11 @@ export interface PlayerKPI extends Player {
   line: Line;
 }
 
-export function playerKPI(): PlayerKPI[] {
-  const ms = S.matches.filter(played),
+/** Kennzahlen pro Spieler (Standard: geöffnete Mannschaft und Saison). */
+export function playerKPI(players: Player[] = S.players, matches: Match[] = S.matches): PlayerKPI[] {
+  const ms = matches.filter(played),
     n = ms.length;
-  return S.players.map(p => {
+  return players.map(p => {
     const k: PlayerKPI = {
       ...p,
       apps: 0,

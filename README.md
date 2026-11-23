@@ -8,8 +8,9 @@ Alle können lesen, ohne Konto. Bearbeiten kann nur der Admin des Teams nach dem
 | Teil | Wo |
 |---|---|
 | Webseite | TypeScript + Vite, ohne Framework (`src/`), gehostet über GitHub Pages |
-| Daten | Supabase, Tabellen `docs` und `teams` (siehe `supabase/README.md`) |
-| Schreibschutz | Row Level Security: nur Team-Admins, Live-Links nur für ihr Spiel |
+| Daten | Supabase, Tabellen `docs`, `teams`, `clubs`, `team_trainers` (siehe `supabase/README.md`) |
+| Schreibschutz | Row Level Security: Vereins-Admin alle Mannschaften, Trainer nur ihre, Live-Links nur ihr Spiel |
+| Preise | Mannschaft CHF 129/Saison, Verein CHF 349/Saison bis 6 Mannschaften (`src/domain/club.ts`) |
 | Import von football.ch & KI-Analysen | über Claude Code (`tools/sb.py`, `tools/ABLAEUFE.md`) |
 
 ### Ordner

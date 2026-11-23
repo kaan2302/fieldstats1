@@ -21,6 +21,7 @@
           <h1 id="title">Mannschaft</h1>
           <div class="sub">
             <span id="subtitle"></span>
+            <select id="teamSel" class="seasonsel" aria-label="Mannschaft wählen" hidden></select>
             <select id="seasonSel" class="seasonsel" aria-label="Saison wählen"></select>
           </div>
         </div>
@@ -64,6 +65,10 @@
             <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 12h.01" /></svg
           ><span>Gegner</span></a
         >
+        <a href="#verein" data-v="verein" class="admin" id="navClub" hidden
+          ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7" /></svg
+          ><span>Hochziehen</span></a
+        >
         <a href="#einstellungen" data-v="einstellungen" class="admin" id="navSet" hidden
           ><svg viewBox="0 0 24 24" aria-hidden="true">
             <path
@@ -79,19 +84,30 @@
           <h2 style="font-size: 26px">Statistik &amp; Live-Erfassung für dein Amateurteam</h2>
           <p class="muted" style="margin-top: 4px">
             Kader, Spiele, Analysen und ein Live-Modus am Spielfeldrand. Für alle lesbar ohne Login – bearbeiten kann
-            nur der Admin. 30 Tage gratis, danach CHF 19.90 pro Monat, jederzeit kündbar.
+            der Admin. 30 Tage gratis, danach CHF 129 pro Saison für eine Mannschaft oder CHF 349 pro Saison für einen
+            ganzen Verein (bis 6 Mannschaften).
           </p>
           <p class="warn" id="lnInfo"></p>
           <div class="seg" id="lnSeg" role="group" style="margin: 10px 0">
-            <button type="button" data-k="reg" aria-pressed="true">Team erstellen</button
+            <button type="button" data-k="reg" aria-pressed="true">Neu erstellen</button
             ><button type="button" data-k="log" aria-pressed="false">Admin-Login</button>
           </div>
           <form id="lnReg" class="grid" style="grid-template-columns: 1fr">
+            <div class="seg" id="rgKind" role="group" aria-label="Was erstellen?">
+              <button type="button" data-k="team" aria-pressed="true">Eine Mannschaft · CHF 129/Saison</button
+              ><button type="button" data-k="club" aria-pressed="false">Ganzer Verein · CHF 349/Saison</button>
+            </div>
+            <p class="small muted" id="rgKindInfo" style="margin: 0"></p>
             <label for="rgName"
-              >Teamname<input id="rgName" placeholder="z. B. FC Muster 2. Mannschaft" required
+              ><span id="rgNameL">Teamname</span
+              ><input id="rgName" placeholder="z. B. FC Muster 2. Mannschaft" required
+            /></label>
+            <label for="rgLabel" id="rgLabelW" hidden
+              >Erste Mannschaft<input id="rgLabel" placeholder="z. B. 1. Mannschaft" value="1. Mannschaft"
             /></label>
             <label for="rgId"
-              >Team-Link<input id="rgId" placeholder="fc-muster-2" pattern="[a-z0-9-]{3,40}" required /><span
+              ><span id="rgIdL">Team-Link</span
+              ><input id="rgId" placeholder="fc-muster-2" pattern="[a-z0-9-]{3,40}" required /><span
                 class="small muted"
                 id="rgUrl"
                 style="text-transform: none; letter-spacing: 0; font-weight: 600"
@@ -103,9 +119,9 @@
             <label for="rgPw"
               >Passwort<input id="rgPw" type="password" autocomplete="new-password" minlength="8" required
             /></label>
-            <button class="btn hot" type="submit" id="rgGo">Team erstellen – 30 Tage gratis</button>
+            <button class="btn hot" type="submit" id="rgGo">Erstellen – 30 Tage gratis</button>
             <p class="small muted">
-              Mit «Team erstellen» akzeptierst du die <a href="#" data-legal="agb">AGB</a> und die
+              Mit «Erstellen» akzeptierst du die <a href="#" data-legal="agb">AGB</a> und die
               <a href="#" data-legal="datenschutz">Datenschutzerklärung</a>.
             </p>
             <p class="status" id="rgMsg" role="status"></p>
@@ -241,6 +257,22 @@
             Nur für Admins sichtbar. Löschen entfernt die Analyse für alle.
           </p>
           <div class="list" id="aList"></div>
+        </div>
+      </section>
+
+      <!-- VEREIN: HOCHZIEHEN (nur Admins und Trainer des Vereins) -->
+      <section id="v-verein" hidden>
+        <div class="panel">
+          <div class="h">
+            <h2>Wen kann man hochziehen?</h2>
+            <select id="clubFilter" aria-label="Mannschaft filtern" style="width: auto; min-width: 180px"></select>
+          </div>
+          <p class="small muted" style="margin-top: 0">
+            Spieler aus den tieferen Mannschaften des Vereins in der gewählten Saison, ab 3 Einsätzen und 180 Minuten.
+            <b>Wert</b> = 50 % Einsatzanteil + 50 % Leistung (Scorerpunkte pro 90 Min., bei Torhütern wenig Gegentore
+            pro 90 Min.). Nur für Admins und Trainer sichtbar.
+          </p>
+          <div class="scroll" id="clubBody"><p class="muted">Lädt …</p></div>
         </div>
       </section>
 
@@ -400,6 +432,7 @@
                 <button class="btn hot" type="button" id="saveMeta">Speichern</button>
               </div>
               <p class="status" id="metaMsg" role="status"></p>
+              <div id="clubBox"></div>
             </div>
             <!-- Spieler -->
             <div class="panel" data-sp="spieler" hidden>

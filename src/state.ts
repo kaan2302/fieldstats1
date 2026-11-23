@@ -47,5 +47,8 @@ export const S: AppState = {
   email: null,
   myTeams: [],
   myTeam: null,
+  myClubs: [],
+  club: null,
+  clubTeams: [],
   locked: false,
 };

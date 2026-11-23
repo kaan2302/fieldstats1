@@ -9,6 +9,8 @@ import "@fontsource/manrope/800.css";
 import "./styles.css";
 import { initApp, render } from "./views/app";
 import { loadAll, reloadSoon, sb, showErr } from "./db";
+import { loadClub } from "./club";
+import { initClubAdmin } from "./views/club-admin";
 import { S, ctx } from "./state";
 import { $ } from "./util";
 import { applySession, initAuth, refreshAdmin } from "./auth";
@@ -67,6 +69,10 @@ render();
       return renderLanding();
     }
   }
+  loadClub()
+    .then(() => (S.admin ? initClubAdmin() : undefined))
+    .then(render)
+    .catch(() => {});
   sb.channel("docs-" + ctx.team)
     .on(
       "postgres_changes",

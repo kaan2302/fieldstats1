@@ -1,6 +1,7 @@
 import { $, $$, esc, slug } from "../util";
 import { QS, S, teamUrl } from "../state";
 import { sb } from "../db";
+import { PRICE } from "../domain/club";
 
 export function renderLanding() {
   document.querySelectorAll<HTMLElement>(".wrap > section").forEach(x => (x.hidden = x.id !== "v-landing"));
@@ -30,24 +31,48 @@ export async function showMyTeams() {
       ts
         .map(
           t =>
-            `<a class="li" href="${esc(teamUrl(t.id))}#start" style="color:inherit;text-decoration:none"><b>${esc(t.name)}</b><span class="small muted">${esc(t.id)}</span></a>`,
+            `<a class="li" href="${esc(teamUrl(t.id))}#start" style="color:inherit;text-decoration:none"><b>${esc(t.name)}</b><span class="small muted">${esc(t.role === "trainer" ? "Trainer" : t.club_name ? "Verein " + t.club_name : t.id)}</span></a>`,
         )
         .join("")
     : `<p class="small muted">Angemeldet als ${esc(S.email)}. Noch kein Team – wechsle zu «Team erstellen».</p>`;
 }
 
+let kind: "team" | "club" = "team";
+function setKind(k: "team" | "club"): void {
+  kind = k;
+  $$("button", $("rgKind")).forEach(b => b.setAttribute("aria-pressed", String(b.dataset.k === k)));
+  const club = k === "club";
+  $("rgNameL").textContent = club ? "Vereinsname" : "Teamname";
+  $("rgName").placeholder = club ? "z. B. FC Muster" : "z. B. FC Muster 2. Mannschaft";
+  $("rgIdL").textContent = club ? "Vereins-Link" : "Team-Link";
+  $("rgLabelW").hidden = !club;
+  $("rgKindInfo").textContent = club
+    ? `Alle Mannschaften des Vereins (bis ${PRICE.clubTeams}, jede weitere CHF ${PRICE.extraTeam}). Du bist Vereins-Admin und kannst pro Mannschaft einen Trainer eintragen.`
+    : "Für eine einzelne Mannschaft. Du kannst sie später einem Vereins-Abo anschliessen.";
+  $("rgName").dispatchEvent(new Event("input"));
+}
+/** Link der ersten Mannschaft im Verein, z. B. «fc-muster-1-mannschaft». */
+const firstTeamId = (clubId: string) => `${clubId}-${slug($("rgLabel").value || "1")}`.slice(0, 40).replace(/-+$/, "");
+const updUrl = () => {
+  const id = $("rgId").value || "…";
+  $("rgUrl").textContent = teamUrl(kind === "club" ? firstTeamId(id) : id);
+};
+
 export function initLanding() {
+  $$("button", $("rgKind")).forEach(b => (b.onclick = () => setKind(b.dataset.k === "club" ? "club" : "team")));
+  setKind("team");
   $$("button", $("lnSeg")).forEach(b => (b.onclick = () => lnMode(b.dataset.k === "log" ? "log" : "reg")));
   $("rgName").oninput = () => {
     if (!$("rgId").dataset.touched) $("rgId").value = slug($("rgName").value).slice(0, 40);
-    $("rgUrl").textContent = teamUrl($("rgId").value || "…");
+    updUrl();
   };
+  $("rgLabel").oninput = updUrl;
   $("rgId").oninput = () => {
     $("rgId").dataset.touched = "1";
     $("rgId").value = $("rgId")
       .value.toLowerCase()
       .replace(/[^a-z0-9-]/g, "-");
-    $("rgUrl").textContent = teamUrl($("rgId").value || "…");
+    updUrl();
   };
   $("lnReg").onsubmit = async (e: Event) => {
     e.preventDefault();
@@ -56,21 +81,32 @@ export function initLanding() {
       email = $("rgMail").value.trim(),
       password = $("rgPw").value;
     if (!/^[a-z0-9-]{3,40}$/.test(id)) {
-      $("rgMsg").textContent = "Team-Link: 3–40 Zeichen, nur a–z, 0–9 und -";
+      $("rgMsg").textContent = "Link: 3–40 Zeichen, nur a–z, 0–9 und -";
       return;
     }
+    const label = $("rgLabel").value.trim();
+    if (kind === "club" && label.length < 2) {
+      $("rgMsg").textContent = "Bitte die erste Mannschaft angeben, z. B. «1. Mannschaft».";
+      return;
+    }
+    const teamId = kind === "club" ? firstTeamId(id) : id;
     $("rgGo").disabled = true;
     $("rgMsg").textContent = "";
-    const { data: ex } = await sb.from("teams").select("id").eq("id", id).maybeSingle();
-    if (ex) {
-      $("rgMsg").textContent = "Dieser Team-Link ist schon vergeben.";
+    const taken =
+      kind === "club"
+        ? (await sb.from("clubs").select("id").eq("id", id).maybeSingle()).data ||
+          (await sb.from("teams").select("id").eq("id", teamId).maybeSingle()).data
+        : (await sb.from("teams").select("id").eq("id", id).maybeSingle()).data;
+    if (taken) {
+      $("rgMsg").textContent = "Dieser Link ist schon vergeben.";
       $("rgGo").disabled = false;
       return;
     }
+    const pending = kind === "club" ? { id: teamId, name, club: { id, name }, label } : { id, name };
     const { data, error } = await sb.auth.signUp({
       email,
       password,
-      options: { data: { pending_team: { id, name } }, emailRedirectTo: teamUrl(id) },
+      options: { data: { pending_team: pending }, emailRedirectTo: teamUrl(teamId) },
     });
     $("rgGo").disabled = false;
     if (error) {
@@ -85,12 +121,16 @@ export function initLanding() {
       return;
     }
     if (data.session) {
-      const r = await sb.rpc("create_team", { p_id: id, p_name: name });
-      if (r.error) {
-        $("rgMsg").textContent = r.error.message;
+      const r =
+        kind === "club"
+          ? (await sb.rpc("create_club", { p_id: id, p_name: name })).error ||
+            (await sb.rpc("create_club_team", { p_club: id, p_id: teamId, p_label: label })).error
+          : (await sb.rpc("create_team", { p_id: id, p_name: name })).error;
+      if (r) {
+        $("rgMsg").textContent = r.message;
         return;
       }
-      location.href = teamUrl(id) + "#einstellungen";
+      location.href = teamUrl(teamId) + "#einstellungen";
       return;
     }
     $("rgMsg").textContent =

@@ -161,11 +161,36 @@ export interface LiveState {
   lastLayout?: Record<string, LineupSpot>;
 }
 
+export type Plan = "trial" | "active" | "canceled" | "past_due" | string;
+
+/** Mannschaft, die der angemeldete Benutzer bearbeiten darf. */
 export interface MyTeam {
   id: string;
   name: string;
-  plan: "trial" | "active" | "canceled" | "past_due" | string;
+  plan: Plan;
   trial_until: string;
+  club_id?: string | null;
+  label?: string | null;
+  /** club = Vereins-Admin, owner = Besitzer einer Einzel-Mannschaft, trainer = nur diese Mannschaft */
+  role?: "club" | "owner" | "trainer";
+  club_name?: string | null;
+  club_plan?: Plan | null;
+  club_trial_until?: string | null;
+}
+
+export interface MyClub {
+  id: string;
+  name: string;
+  plan: Plan;
+  trial_until: string;
+}
+
+/** Mannschaft eines Vereins (öffentlich, für die Auswahl oben). */
+export interface ClubTeam {
+  id: string;
+  name: string;
+  label: string | null;
+  club_id: string | null;
 }
 
 export interface SeasonData {
@@ -190,5 +215,9 @@ export interface AppState {
   email: string | null;
   myTeams: MyTeam[];
   myTeam: MyTeam | null;
+  myClubs: MyClub[];
+  /** Verein der geöffneten Mannschaft und seine Mannschaften (leer ohne Verein). */
+  club: { id: string; name: string } | null;
+  clubTeams: ClubTeam[];
   locked: boolean;
 }

@@ -1,13 +1,15 @@
+import { renderClubAdmin } from "./club-admin";
+import { PRICE, effectivePlan } from "../domain/club";
 import { shortName, uniqueShortName } from "../domain/privacy";
 import { legalHtml, legalMissing } from "../legal";
 import { S, ctx, teamUrl } from "../state";
-import { $, $$, errMsg, esc, face, fmtD, initials, norm, num, shrink, slug, uid } from "../util";
+import { $, $$, errMsg, esc, face, fmtD, initials, norm, num, shrink, slug, today, uid } from "../util";
 import { LINE, POS, POS_ORDER } from "../positions";
 import { byDate, isOurs, leagueTeams, pById, parseTable, played, playerKPI, res, tableFromResults } from "../domain";
 import { openMEdit } from "./match-edit";
 import { dbUpsert, del, loadAll, put, putDoc, saveNote, up } from "../db";
 import { card } from "./kader";
-import { STRIPE_CHECKOUT, STRIPE_PORTAL } from "../config";
+import { STRIPE_CHECKOUT_CLUB, STRIPE_CHECKOUT_TEAM, STRIPE_PORTAL } from "../config";
 import { curSeason } from "../season";
 import type { TableRow } from "../types";
 
@@ -70,6 +72,9 @@ export function renderSettings() {
   $("adminMail2").textContent = S.email || "";
   $("pubLink").value = teamUrl(ctx.team ?? "");
   renderAbo();
+  renderClubAdmin();
+  const abo = document.querySelector<HTMLElement>('[data-s="abo"]');
+  if (abo) abo.hidden = S.myTeam?.role === "trainer";
 }
 export function previewP() {
   const p = {
@@ -102,42 +107,47 @@ export function openPEdit(id: string | null): void {
   previewP();
   $("pedit").showModal();
 }
+/** Abonnement: Mannschaft (CHF 129/Saison) oder Verein (CHF 349/Saison). Trainer sehen das Abo nicht. */
 export function renderAbo() {
   const t = S.myTeam;
-  if (!t) {
+  const p = effectivePlan(t);
+  if (!t || !p || t.role === "trainer") {
     $("aboBody").innerHTML = "";
     return;
   }
-  const today = new Date().toISOString().slice(0, 10),
-    trial = t.plan === "trial",
-    left = Math.ceil((new Date(t.trial_until).getTime() - new Date(today).getTime()) / 864e5);
+  const club = !!t.club_id;
+  const left = Math.ceil((new Date(p.until).getTime() - new Date(today()).getTime()) / 864e5);
   const status =
-    t.plan === "active"
+    p.plan === "active"
       ? `<span style="color:var(--win)">Aktiv</span>`
-      : trial
+      : p.plan === "trial"
         ? left >= 0
           ? `Testphase – noch ${left} ${left === 1 ? "Tag" : "Tage"}`
           : `<span style="color:var(--loss)">Testphase abgelaufen</span>`
-        : t.plan === "past_due"
+        : p.plan === "past_due"
           ? `<span style="color:var(--loss)">Zahlung offen</span>`
           : "Gekündigt";
-  const pay = STRIPE_CHECKOUT
-    ? `${STRIPE_CHECKOUT}?client_reference_id=${encodeURIComponent(ctx.team ?? "")}&prefilled_email=${encodeURIComponent(S.email || "")}`
+  const price = club ? PRICE.club : PRICE.team;
+  const link = club ? STRIPE_CHECKOUT_CLUB : STRIPE_CHECKOUT_TEAM;
+  const ref = club ? t.club_id : ctx.team;
+  const pay = link
+    ? `${link}?client_reference_id=${encodeURIComponent(ref ?? "")}&prefilled_email=${encodeURIComponent(S.email || "")}`
     : "";
+  const label = `Abo abschliessen – CHF ${price} pro Saison`;
   $("aboBody").innerHTML =
-    `<div class="kpis"><div class="kpi"><div class="v" style="font-size:22px">${status}</div><div class="l">Status</div></div>
-      <div class="kpi"><div class="v" style="font-size:22px">CHF 19.90</div><div class="l">pro Monat</div><div class="s">jederzeit kündbar</div></div></div>
-    <ul style="margin:12px 0;padding-left:18px;line-height:1.7"><li>Unbegrenzt Spieler, Spiele und Saisons</li><li>Live-Modus mit Live-Links pro Spiel</li><li>Analysen, Gegner, Tabelle, Aufgebot als PDF</li><li>Link für alle ohne Login</li></ul>
+    `<div class="kpis"><div class="kpi"><div class="v" style="font-size:22px">${status}</div><div class="l">Status</div>${club ? `<div class="s">Vereins-Abo ${esc(t.club_name || "")}</div>` : ""}</div>
+      <div class="kpi"><div class="v" style="font-size:22px">CHF ${price}</div><div class="l">pro Saison</div><div class="s">${club ? `bis ${PRICE.clubTeams} Mannschaften, jede weitere CHF ${PRICE.extraTeam}` : "eine Mannschaft"}</div></div></div>
+    <ul style="margin:12px 0;padding-left:18px;line-height:1.7"><li>Unbegrenzt Spieler, Spiele und Saisons</li><li>Live-Modus mit Live-Links pro Spiel</li><li>Analysen, Gegner, Tabelle, Aufgebot als PDF</li><li>Link für alle ohne Login</li>${club ? "<li>Auswahl aller Mannschaften, Trainer pro Mannschaft, Übersicht «Hochziehen»</li>" : ""}</ul>
     ${
-      t.plan === "active"
+      p.plan === "active"
         ? STRIPE_PORTAL
           ? `<a class="btn" href="${STRIPE_PORTAL}" target="_blank" rel="noopener">Abo verwalten / kündigen</a>`
           : `<p class="small muted">Kündigen: Link folgt mit der Stripe-Anbindung.</p>`
         : pay
-          ? `<a class="btn hot" href="${pay}" target="_blank" rel="noopener">Abo abschliessen – CHF 19.90/Monat</a>`
-          : `<button class="btn hot" type="button" disabled>Abo abschliessen – CHF 19.90/Monat</button><p class="small muted" style="margin-top:6px">Die Zahlung über Stripe wird gerade eingerichtet.</p>`
+          ? `<a class="btn hot" href="${pay}" target="_blank" rel="noopener">${label}</a>`
+          : `<button class="btn hot" type="button" disabled>${label}</button><p class="small muted" style="margin-top:6px">Die Zahlung über Stripe wird gerade eingerichtet.</p>`
     }
-    <p class="small muted" style="margin-top:10px">Nach der Testphase ohne Abo bleibt alles lesbar, Bearbeiten ist dann gesperrt.</p>`;
+    <p class="small muted" style="margin-top:10px">Die Saison läuft vom 1. Juli bis 30. Juni. Nach der Testphase ohne Abo bleibt alles lesbar, Bearbeiten ist dann gesperrt.${club ? "" : ` Mehrere Mannschaften? Unter «Mannschaft» kannst du ein Vereins-Abo starten (CHF ${PRICE.club} pro Saison).`}</p>`;
 }
 let tDraft: TableRow[] | null = null;
 export function tEditRender(): void {
