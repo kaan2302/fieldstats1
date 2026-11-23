@@ -1531,3 +1531,23 @@ dialog::backdrop {
 .acards > .acard > h3:first-child {
   margin-top: 0;
 }
+
+/* Analyse: Abschnitte «Einfach» und «Detailliert» */
+.asec {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 18px 0 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.asec:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.asec h2 {
+  margin: 0;
+  font-size: 18px;
+}
